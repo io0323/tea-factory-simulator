@@ -89,7 +89,25 @@ GUI 版（ダッシュボード）:
 CLI 版は実行すると、カレントディレクトリに
 `tea_factory_cli.csv` を生成します（1秒ごとに1行）。
 
-次タスク（CLI引数化）で、出力先パス指定にも対応します。
+### CLI引数で制御
+
+CSV出力や工程時間は CLI 引数で変更できます。
+
+```bash
+./build/tea_factory_simulator_cli --help
+```
+
+例（CSV出力先と時間刻みを変更）:
+
+```bash
+./build/tea_factory_simulator_cli --dt 2 --csv output.csv
+```
+
+例（CSVを出さずにログだけ）:
+
+```bash
+./build/tea_factory_simulator_cli --no-csv
+```
 
 出力例（毎ステップ出力）:
 

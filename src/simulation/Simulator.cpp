@@ -59,14 +59,20 @@ void Simulator::run(std::ostream& os, ::tea_io::CsvWriter* csv) {
   elapsed_seconds_ = 0;
 
   for (const Stage& stage : stages_) {
+    /*
+      dt が工程時間で割り切れない場合でも、工程時間ぴったりで進むように
+      残り時間に応じて最後のステップ幅を調整します。
+    */
     const int dt = config_.dt_seconds;
-    const int steps = stage.duration_seconds / dt;
+    int remaining = stage.duration_seconds;
 
-    for (int i = 0; i < steps; ++i) {
-      stage.process->apply_step(leaf_, dt);
-      elapsed_seconds_ += dt;
+    while (remaining > 0) {
+      const int step = std::min(dt, remaining);
+      stage.process->apply_step(leaf_, step);
+      elapsed_seconds_ += step;
+      remaining -= step;
+
       log_step(os, stage.process->state(), elapsed_seconds_);
-
       if (csv != nullptr) {
         csv->write_row(to_string(stage.process->state()),
                        elapsed_seconds_,

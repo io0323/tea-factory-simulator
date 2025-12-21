@@ -12,6 +12,7 @@ option(TEAFACTORY_BUILD_GUI "Build GUI dashboard (ImGui/GLFW/OpenGL3)" ON)
 if(TEAFACTORY_BUILD_CLI)
   add_executable(tea_factory_simulator_cli
     src/cli/main.cpp
+    src/cli/Args.cpp
     src/io/CsvWriter.cpp
     src/process/SteamingProcess.cpp
     src/process/RollingProcess.cpp
