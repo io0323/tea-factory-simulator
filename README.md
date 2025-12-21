@@ -109,6 +109,11 @@ CSV出力や工程時間は CLI 引数で変更できます。
 ./build/tea_factory_simulator_cli --no-csv
 ```
 
+### GUI版
+
+GUI版は **Start** を押すと、カレントディレクトリに
+`tea_factory_gui.csv` を生成します（1秒ごとに1行）。
+
 出力例（毎ステップ出力）:
 
 ```
