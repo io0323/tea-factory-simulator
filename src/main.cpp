@@ -93,6 +93,8 @@ int main() {
   tea_gui::Simulator simulator;
   std::optional<tea_io::CsvWriter> csv;
   int last_csv_elapsed = -1;
+  int selected_batch = 0;
+  int desired_batches = 1;
 
   using clock = std::chrono::steady_clock;
   auto last = clock::now();
@@ -116,7 +118,11 @@ int main() {
                  ImGuiWindowFlags_NoResize |
                      ImGuiWindowFlags_NoCollapse);
 
-    const tea_gui::TeaBatch& batch = simulator.batch();
+    desired_batches = simulator.batch_count();
+    if (selected_batch >= simulator.batch_count()) {
+      selected_batch = simulator.batch_count() - 1;
+    }
+    const tea_gui::TeaBatch& batch = simulator.batch_at(selected_batch);
 
     /*
       GUI版CSV出力:
@@ -136,6 +142,7 @@ int main() {
 
     ImGui::Text("Current Process: %s", tea_gui::to_string(batch.process()));
     ImGui::Text("Elapsed Time: %d sec", batch.elapsed_seconds());
+    ImGui::Text("Batch: %d / %d", selected_batch + 1, simulator.batch_count());
     ImGui::Separator();
 
     const float bar_width = 360.0F;
@@ -198,6 +205,35 @@ int main() {
                                tea_gui::ModelType::DEFAULT;
         simulator.set_model(next);
       }
+    }
+
+    ImGui::TextUnformatted("Batches");
+    ImGui::SameLine(140.0F);
+    ImGui::SetNextItemWidth(120.0F);
+    int tmp_batches = desired_batches;
+    if (ImGui::InputInt("##batches", &tmp_batches)) {
+      if (tmp_batches < 1) {
+        tmp_batches = 1;
+      }
+      if (tmp_batches > 16) {
+        tmp_batches = 16;
+      }
+      desired_batches = tmp_batches;
+    }
+    ImGui::SameLine();
+    if (ImGui::Button("Apply") && !simulator.is_running()) {
+      simulator.set_batch_count(desired_batches);
+      selected_batch = 0;
+      csv.reset();
+      last_csv_elapsed = -1;
+    }
+
+    ImGui::TextUnformatted("Select");
+    ImGui::SameLine(140.0F);
+    int tmp_sel = selected_batch;
+    if (ImGui::SliderInt("##batchsel", &tmp_sel, 0,
+                         std::max(0, simulator.batch_count() - 1))) {
+      selected_batch = tmp_sel;
     }
 
     if (ImGui::Button("Start")) {

@@ -41,6 +41,18 @@ class Simulator final {
   /* CSV出力を伴って全工程を実行します（csv が null の場合は無効）。 */
   void run(std::ostream& os, ::tea_io::CsvWriter* csv);
 
+  /* 1 ステップ進めます。完了済みなら false を返します。 */
+  bool step(int dt_seconds, ::tea_io::CsvWriter* csv);
+
+  /* 現在工程を返します（完了時は DRYING のままになり得ます）。 */
+  ProcessState current_process() const;
+
+  /* 現在の茶葉状態を返します。 */
+  const TeaLeaf& leaf() const;
+
+  /* 経過時間（秒）を返します。 */
+  int elapsed_seconds() const;
+
  private:
   /* 工程と継続時間を束ねたステージです。 */
   struct Stage final {
@@ -58,6 +70,9 @@ class Simulator final {
   TeaLeaf leaf_;
   int elapsed_seconds_ = 0;
   std::vector<Stage> stages_;
+
+  std::size_t stage_index_ = 0;
+  int stage_remaining_seconds_ = 0;
 };
 
 } /* namespace tea */

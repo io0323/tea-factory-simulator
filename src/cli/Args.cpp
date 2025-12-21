@@ -42,7 +42,8 @@ Args parse_args(int argc, char** argv) {
     }
 
     if (a == "--dt" || a == "--steaming" || a == "--rolling" ||
-        a == "--drying" || a == "--csv" || a == "--model") {
+        a == "--drying" || a == "--csv" || a == "--model" ||
+        a == "--batches") {
       if (i + 1 >= argc) {
         args.error = "Missing value for " + a;
         return args;
@@ -65,6 +66,16 @@ Args parse_args(int argc, char** argv) {
           args.error = "Invalid model: " + args.model;
           return args;
         }
+        continue;
+      }
+
+      if (a == "--batches") {
+        const auto parsed = parse_positive_int(v);
+        if (!parsed.has_value() || *parsed > 128) {
+          args.error = "Invalid batches: " + std::string(v ? v : "");
+          return args;
+        }
+        args.batches = *parsed;
         continue;
       }
 
@@ -127,6 +138,7 @@ const char* help_text() {
       "  --rolling <sec>   Rolling duration (default: 30)\n"
       "  --drying <sec>    Drying duration (default: 60)\n"
       "  --model <name>    Model: default|gentle|aggressive\n"
+      "  --batches <n>     Batch count (default: 1, max: 128)\n"
       "  --csv <path>      CSV output path (default: tea_factory_cli.csv)\n"
       "  --no-csv          Disable CSV output\n"
       "  -h, --help        Show help\n";

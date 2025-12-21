@@ -16,11 +16,17 @@ namespace tea {
 /* 既定設定で構築します。 */
 Simulator::Simulator() : config_() {
   build_default_stages();
+  stage_index_ = 0;
+  stage_remaining_seconds_ =
+      stages_.empty() ? 0 : stages_.front().duration_seconds;
 }
 
 /* 設定を指定して構築します。 */
 Simulator::Simulator(SimulationConfig config) : config_(config) {
   build_default_stages();
+  stage_index_ = 0;
+  stage_remaining_seconds_ =
+      stages_.empty() ? 0 : stages_.front().duration_seconds;
 }
 
 /* 初期状態を設定します。 */
@@ -58,32 +64,65 @@ void Simulator::run(std::ostream& os) {
 /* CSV出力を伴って全工程を実行します。 */
 void Simulator::run(std::ostream& os, ::tea_io::CsvWriter* csv) {
   elapsed_seconds_ = 0;
+  stage_index_ = 0;
+  stage_remaining_seconds_ =
+      stages_.empty() ? 0 : stages_.front().duration_seconds;
 
-  for (const Stage& stage : stages_) {
-    /*
-      dt が工程時間で割り切れない場合でも、工程時間ぴったりで進むように
-      残り時間に応じて最後のステップ幅を調整します。
-    */
-    const int dt = config_.dt_seconds;
-    int remaining = stage.duration_seconds;
-
-    while (remaining > 0) {
-      const int step = std::min(dt, remaining);
-      stage.process->apply_step(leaf_, step);
-      elapsed_seconds_ += step;
-      remaining -= step;
-
-      log_step(os, stage.process->state(), elapsed_seconds_);
-      if (csv != nullptr) {
-        csv->write_row(to_string(stage.process->state()),
-                       elapsed_seconds_,
-                       leaf_.moisture,
-                       leaf_.temperature_c,
-                       leaf_.aroma,
-                       leaf_.color);
-      }
-    }
+  while (step(config_.dt_seconds, csv)) {
+    log_step(os, current_process(), elapsed_seconds_);
   }
+}
+
+/* 1 ステップ進めます。完了済みなら false を返します。 */
+bool Simulator::step(int dt_seconds, ::tea_io::CsvWriter* csv) {
+  if (stages_.empty() || stage_index_ >= stages_.size()) {
+    return false;
+  }
+  if (stage_remaining_seconds_ <= 0) {
+    ++stage_index_;
+    if (stage_index_ >= stages_.size()) {
+      return false;
+    }
+    stage_remaining_seconds_ = stages_[stage_index_].duration_seconds;
+  }
+
+  /*
+    dt が工程時間で割り切れない場合でも、工程時間ぴったりで進むように
+    残り時間に応じて最後のステップ幅を調整します。
+  */
+  const Stage& stage = stages_[stage_index_];
+  const int step = std::min(dt_seconds, stage_remaining_seconds_);
+  stage.process->apply_step(leaf_, step);
+  elapsed_seconds_ += step;
+  stage_remaining_seconds_ -= step;
+
+  if (csv != nullptr) {
+    csv->write_row(to_string(stage.process->state()),
+                   elapsed_seconds_,
+                   leaf_.moisture,
+                   leaf_.temperature_c,
+                   leaf_.aroma,
+                   leaf_.color);
+  }
+  return true;
+}
+
+/* 現在工程を返します。 */
+ProcessState Simulator::current_process() const {
+  if (stages_.empty() || stage_index_ >= stages_.size()) {
+    return ProcessState::DRYING;
+  }
+  return stages_[stage_index_].process->state();
+}
+
+/* 現在の茶葉状態を返します。 */
+const TeaLeaf& Simulator::leaf() const {
+  return leaf_;
+}
+
+/* 経過時間（秒）を返します。 */
+int Simulator::elapsed_seconds() const {
+  return elapsed_seconds_;
 }
 
 /* 1 ステップのログ行を出力します。 */
