@@ -109,6 +109,12 @@ CSV出力や工程時間は CLI 引数で変更できます。
 ./build/tea_factory_simulator_cli --no-csv
 ```
 
+例（モデルを変更）:
+
+```bash
+./build/tea_factory_simulator_cli --model gentle
+```
+
 ### GUI版
 
 GUI版は **Start** を押すと、カレントディレクトリに

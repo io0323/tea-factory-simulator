@@ -13,6 +13,12 @@ class Simulator final {
   /* 既定状態で構築します。 */
   Simulator();
 
+  /* モデル（係数セット）を設定します（停止状態で適用します）。 */
+  void set_model(ModelType type);
+
+  /* 現在モデルを返します。 */
+  ModelType model() const;
+
   /* 実行を開始します。 */
   void start();
 
@@ -33,6 +39,7 @@ class Simulator final {
 
  private:
   bool running_ = false;
+  ModelType model_ = ModelType::DEFAULT;
   TeaBatch batch_;
 };
 

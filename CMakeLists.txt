@@ -14,6 +14,7 @@ if(TEAFACTORY_BUILD_CLI)
     src/cli/main.cpp
     src/cli/Args.cpp
     src/io/CsvWriter.cpp
+    src/domain/Model.cpp
     src/process/SteamingProcess.cpp
     src/process/RollingProcess.cpp
     src/process/DryingProcess.cpp
@@ -71,6 +72,7 @@ if(TEAFACTORY_BUILD_GUI)
   add_executable(TeaFactorySimulator
     src/main.cpp
     src/io/CsvWriter.cpp
+    src/domain/Model.cpp
     src/TeaBatch.cpp
     src/Simulator.cpp
   )
