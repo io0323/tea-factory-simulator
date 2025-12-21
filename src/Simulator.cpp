@@ -3,7 +3,24 @@
 namespace tea_gui {
 
 /* 既定状態で構築します。 */
-Simulator::Simulator() = default;
+Simulator::Simulator() {
+  batch_.set_model(model_);
+}
+
+/* モデル（係数セット）を設定します（停止状態で適用します）。 */
+void Simulator::set_model(ModelType type) {
+  if (running_) {
+    return;
+  }
+  model_ = type;
+  batch_.set_model(model_);
+  batch_.reset();
+}
+
+/* 現在モデルを返します。 */
+ModelType Simulator::model() const {
+  return model_;
+}
 
 /* 実行を開始します。 */
 void Simulator::start() {
@@ -21,6 +38,7 @@ void Simulator::pause() {
 /* 初期状態へ戻します（停止状態になります）。 */
 void Simulator::reset() {
   running_ = false;
+  batch_.set_model(model_);
   batch_.reset();
 }
 

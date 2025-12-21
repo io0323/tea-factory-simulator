@@ -4,6 +4,7 @@
 #include <memory>
 #include <vector>
 
+#include "domain/Model.h"
 #include "domain/TeaLeaf.h"
 #include "process/IProcess.h"
 
@@ -19,6 +20,7 @@ struct SimulationConfig final {
   int steaming_seconds = 30;  /* 蒸し工程の時間 [s] */
   int rolling_seconds = 30;   /* 揉捻工程の時間 [s] */
   int drying_seconds = 60;    /* 乾燥工程の時間 [s] */
+  ModelType model = ModelType::DEFAULT; /* モデル（係数セット） */
 };
 
 /* 製造工程シミュレーションを統括し、工程遷移とログ出力を行います。 */

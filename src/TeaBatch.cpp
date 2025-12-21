@@ -5,6 +5,19 @@
 
 namespace tea_gui {
 
+/* 表示用のモデル名を返します。 */
+const char* to_string(ModelType type) {
+  switch (type) {
+    case ModelType::DEFAULT:
+      return "default";
+    case ModelType::GENTLE:
+      return "gentle";
+    case ModelType::AGGRESSIVE:
+      return "aggressive";
+  }
+  return "unknown";
+}
+
 /* 工程名を表示用文字列に変換します。 */
 const char* to_string(ProcessState state) {
   switch (state) {
@@ -23,6 +36,11 @@ const char* to_string(ProcessState state) {
 /* 既定の初期状態で構築します。 */
 TeaBatch::TeaBatch() {
   reset();
+}
+
+/* モデル（係数セット）を設定します。 */
+void TeaBatch::set_model(ModelType type) {
+  model_ = type;
 }
 
 /* 初期状態へ戻します。 */
@@ -68,35 +86,65 @@ void TeaBatch::update(double delta_seconds) {
       過熱時は aroma が劣化
   */
   if (process_ == ProcessState::STEAMING) {
-    const double target_temp_c = 95.0;
-    const double heat_k = 0.08;
-    const double moisture_gain_per_s = 0.0008;
-    const double aroma_gain_per_s = 1.0;
-    const double color_gain_per_s = 0.2;
+    double target_temp_c = 95.0;
+    double heat_k = 0.08;
+    double moisture_gain_per_s = 0.0008;
+    double aroma_gain_per_s = 1.0;
+    double color_gain_per_s = 0.2;
+
+    if (model_ == ModelType::GENTLE) {
+      heat_k = 0.05;
+      moisture_gain_per_s = 0.0006;
+      aroma_gain_per_s = 0.7;
+    } else if (model_ == ModelType::AGGRESSIVE) {
+      heat_k = 0.11;
+      moisture_gain_per_s = 0.0011;
+      aroma_gain_per_s = 1.4;
+    }
 
     temperature_c_ += (target_temp_c - temperature_c_) * heat_k * dt;
     moisture_ += moisture_gain_per_s * dt;
     aroma_ += aroma_gain_per_s * dt * (1.0 - aroma_ / 100.0);
     color_ += color_gain_per_s * dt * (1.0 - color_ / 100.0);
   } else if (process_ == ProcessState::ROLLING) {
-    const double target_temp_c = 70.0;
-    const double cool_k = 0.05;
-    const double moisture_loss_k = 0.0015;
-    const double aroma_gain_per_s = 0.6;
-    const double color_gain_per_s = 0.3;
+    double target_temp_c = 70.0;
+    double cool_k = 0.05;
+    double moisture_loss_k = 0.0015;
+    double aroma_gain_per_s = 0.6;
+    double color_gain_per_s = 0.3;
+
+    if (model_ == ModelType::GENTLE) {
+      cool_k = 0.04;
+      moisture_loss_k = 0.0010;
+      aroma_gain_per_s = 0.4;
+    } else if (model_ == ModelType::AGGRESSIVE) {
+      cool_k = 0.07;
+      moisture_loss_k = 0.0022;
+      aroma_gain_per_s = 0.9;
+    }
 
     temperature_c_ += (target_temp_c - temperature_c_) * cool_k * dt;
     moisture_ -= moisture_loss_k * dt * (0.4 + 0.6 * moisture_);
     aroma_ += aroma_gain_per_s * dt * (1.0 - aroma_ / 100.0);
     color_ += color_gain_per_s * dt * (1.0 - color_ / 100.0);
   } else if (process_ == ProcessState::DRYING) {
-    const double target_temp_c = 60.0;
-    const double temp_k = 0.07;
-    const double dry_k = 0.05;
-    const double aroma_recover_per_s = 0.2;
-    const double overheat_c = 70.0;
-    const double aroma_damage_k = 0.02;
-    const double color_gain_per_s = 0.15;
+    double target_temp_c = 60.0;
+    double temp_k = 0.07;
+    double dry_k = 0.05;
+    double aroma_recover_per_s = 0.2;
+    double overheat_c = 70.0;
+    double aroma_damage_k = 0.02;
+    double color_gain_per_s = 0.15;
+
+    if (model_ == ModelType::GENTLE) {
+      temp_k = 0.06;
+      dry_k = 0.035;
+      aroma_damage_k = 0.015;
+    } else if (model_ == ModelType::AGGRESSIVE) {
+      temp_k = 0.09;
+      dry_k = 0.07;
+      aroma_damage_k = 0.03;
+    }
 
     temperature_c_ += (target_temp_c - temperature_c_) * temp_k * dt;
     moisture_ *= std::exp(-dry_k * dt);

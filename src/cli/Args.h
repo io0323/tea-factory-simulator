@@ -15,6 +15,8 @@ struct Args final {
   int rolling_seconds = 30;
   int drying_seconds = 60;
 
+  std::string model = "default";
+
   bool csv_enabled = true;
   std::string csv_path = "tea_factory_cli.csv";
 

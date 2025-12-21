@@ -2,6 +2,7 @@
 
 #include "cli/Args.h"
 #include "io/CsvWriter.h"
+#include "domain/Model.h"
 #include "simulation/Simulator.h"
 
 /* CLI エントリポイントです。引数に応じて設定し、ログ/CSVを出力します。 */
@@ -22,6 +23,13 @@ int main(int argc, char** argv) {
   config.steaming_seconds = args.steaming_seconds;
   config.rolling_seconds = args.rolling_seconds;
   config.drying_seconds = args.drying_seconds;
+  if (args.model == "gentle") {
+    config.model = tea::ModelType::GENTLE;
+  } else if (args.model == "aggressive") {
+    config.model = tea::ModelType::AGGRESSIVE;
+  } else {
+    config.model = tea::ModelType::DEFAULT;
+  }
 
   tea::Simulator simulator(config);
 

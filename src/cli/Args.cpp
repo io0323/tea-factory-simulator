@@ -42,7 +42,7 @@ Args parse_args(int argc, char** argv) {
     }
 
     if (a == "--dt" || a == "--steaming" || a == "--rolling" ||
-        a == "--drying" || a == "--csv") {
+        a == "--drying" || a == "--csv" || a == "--model") {
       if (i + 1 >= argc) {
         args.error = "Missing value for " + a;
         return args;
@@ -53,6 +53,16 @@ Args parse_args(int argc, char** argv) {
         args.csv_path = v ? v : "";
         if (args.csv_path.empty()) {
           args.error = "CSV path is empty";
+          return args;
+        }
+        continue;
+      }
+
+      if (a == "--model") {
+        args.model = v ? v : "";
+        if (args.model != "default" && args.model != "gentle" &&
+            args.model != "aggressive") {
+          args.error = "Invalid model: " + args.model;
           return args;
         }
         continue;
@@ -116,6 +126,7 @@ const char* help_text() {
       "  --steaming <sec>  Steaming duration (default: 30)\n"
       "  --rolling <sec>   Rolling duration (default: 30)\n"
       "  --drying <sec>    Drying duration (default: 60)\n"
+      "  --model <name>    Model: default|gentle|aggressive\n"
       "  --csv <path>      CSV output path (default: tea_factory_cli.csv)\n"
       "  --no-csv          Disable CSV output\n"
       "  -h, --help        Show help\n";

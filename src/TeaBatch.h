@@ -4,6 +4,16 @@
 
 namespace tea_gui {
 
+/* GUI版のモデル種別です（係数セット切替用）。 */
+enum class ModelType {
+  DEFAULT,
+  GENTLE,
+  AGGRESSIVE
+};
+
+/* 表示用のモデル名を返します。 */
+const char* to_string(ModelType type);
+
 /* 製造工程の状態（GUI版）を表す列挙です。 */
 enum class ProcessState {
   STEAMING,
@@ -23,6 +33,9 @@ class TeaBatch final {
  public:
   /* 既定の初期状態で構築します。 */
   TeaBatch();
+
+  /* モデル（係数セット）を設定します。 */
+  void set_model(ModelType type);
 
   /* 初期状態へ戻します。 */
   void reset();
@@ -57,6 +70,8 @@ class TeaBatch final {
 
   /* 工程の閾値で次工程へ進めます。 */
   void advance_stage_if_needed();
+
+  ModelType model_ = ModelType::DEFAULT;
 
   ProcessState process_ = ProcessState::STEAMING;
   double stage_elapsed_seconds_ = 0.0;

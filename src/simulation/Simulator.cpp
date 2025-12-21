@@ -32,19 +32,20 @@ void Simulator::set_initial_leaf(const TeaLeaf& leaf) {
 /* 既定のステージ構成（蒸し→揉捻→乾燥）を作ります。 */
 void Simulator::build_default_stages() {
   stages_.clear();
+  const ModelParams model = make_model(config_.model);
 
   Stage steaming;
-  steaming.process = std::make_unique<SteamingProcess>();
+  steaming.process = std::make_unique<SteamingProcess>(model.steaming);
   steaming.duration_seconds = config_.steaming_seconds;
   stages_.push_back(std::move(steaming));
 
   Stage rolling;
-  rolling.process = std::make_unique<RollingProcess>();
+  rolling.process = std::make_unique<RollingProcess>(model.rolling);
   rolling.duration_seconds = config_.rolling_seconds;
   stages_.push_back(std::move(rolling));
 
   Stage drying;
-  drying.process = std::make_unique<DryingProcess>();
+  drying.process = std::make_unique<DryingProcess>(model.drying);
   drying.duration_seconds = config_.drying_seconds;
   stages_.push_back(std::move(drying));
 }

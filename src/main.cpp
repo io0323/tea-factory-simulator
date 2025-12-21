@@ -173,6 +173,33 @@ int main() {
 
     ImGui::Separator();
 
+    /*
+      モデル選択:
+      - 停止中のみ変更可能
+      - 変更時は初期状態へリセットして適用します
+    */
+    int model_idx = 0;
+    {
+      const tea_gui::ModelType m = simulator.model();
+      if (m == tea_gui::ModelType::GENTLE) {
+        model_idx = 1;
+      } else if (m == tea_gui::ModelType::AGGRESSIVE) {
+        model_idx = 2;
+      }
+    }
+    const char* model_items[] = {"default", "gentle", "aggressive"};
+    ImGui::TextUnformatted("Model");
+    ImGui::SameLine(140.0F);
+    if (ImGui::Combo("##model", &model_idx, model_items, 3)) {
+      if (!simulator.is_running()) {
+        const tea_gui::ModelType next =
+            (model_idx == 1) ? tea_gui::ModelType::GENTLE :
+            (model_idx == 2) ? tea_gui::ModelType::AGGRESSIVE :
+                               tea_gui::ModelType::DEFAULT;
+        simulator.set_model(next);
+      }
+    }
+
     if (ImGui::Button("Start")) {
       simulator.start();
       if (!csv.has_value()) {
