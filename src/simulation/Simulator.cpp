@@ -6,6 +6,7 @@
 #include <string>
 
 #include "domain/ProcessState.h"
+#include "io/CsvWriter.h"
 #include "process/DryingProcess.h"
 #include "process/RollingProcess.h"
 #include "process/SteamingProcess.h"
@@ -50,6 +51,11 @@ void Simulator::build_default_stages() {
 
 /* 全工程を実行し、各ステップの状態を出力します。 */
 void Simulator::run(std::ostream& os) {
+  run(os, nullptr);
+}
+
+/* CSV出力を伴って全工程を実行します。 */
+void Simulator::run(std::ostream& os, ::tea_io::CsvWriter* csv) {
   elapsed_seconds_ = 0;
 
   for (const Stage& stage : stages_) {
@@ -60,6 +66,15 @@ void Simulator::run(std::ostream& os) {
       stage.process->apply_step(leaf_, dt);
       elapsed_seconds_ += dt;
       log_step(os, stage.process->state(), elapsed_seconds_);
+
+      if (csv != nullptr) {
+        csv->write_row(to_string(stage.process->state()),
+                       elapsed_seconds_,
+                       leaf_.moisture,
+                       leaf_.temperature_c,
+                       leaf_.aroma,
+                       leaf_.color);
+      }
     }
   }
 }
