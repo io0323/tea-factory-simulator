@@ -1,8 +1,11 @@
 #include <chrono>
 #include <cstdio>
+#include <optional>
 
 #include "Simulator.h"
 #include "TeaBatch.h"
+
+#include "io/CsvWriter.h"
 
 #include "imgui.h"
 #include "imgui_impl_glfw.h"
@@ -88,6 +91,8 @@ int main() {
   ImGui_ImplOpenGL3_Init(glsl_version);
 
   tea_gui::Simulator simulator;
+  std::optional<tea_io::CsvWriter> csv;
+  int last_csv_elapsed = -1;
 
   using clock = std::chrono::steady_clock;
   auto last = clock::now();
@@ -112,6 +117,22 @@ int main() {
                      ImGuiWindowFlags_NoCollapse);
 
     const tea_gui::TeaBatch& batch = simulator.batch();
+
+    /*
+      GUI版CSV出力:
+      - Start時に tea_factory_gui.csv を新規作成（上書き）
+      - 実行中、elapsedSeconds が進んだタイミング（=1秒ごと）で1行追記
+    */
+    const int elapsed = batch.elapsed_seconds();
+    if (csv.has_value() && elapsed != last_csv_elapsed) {
+      last_csv_elapsed = elapsed;
+      csv->write_row(tea_gui::to_string(batch.process()),
+                     elapsed,
+                     batch.moisture(),
+                     batch.temperature_c(),
+                     batch.aroma(),
+                     batch.color());
+    }
 
     ImGui::Text("Current Process: %s", tea_gui::to_string(batch.process()));
     ImGui::Text("Elapsed Time: %d sec", batch.elapsed_seconds());
@@ -154,6 +175,11 @@ int main() {
 
     if (ImGui::Button("Start")) {
       simulator.start();
+      if (!csv.has_value()) {
+        csv.emplace("tea_factory_gui.csv");
+        csv->write_header();
+        last_csv_elapsed = -1;
+      }
     }
     ImGui::SameLine();
     if (ImGui::Button("Pause")) {
@@ -162,6 +188,8 @@ int main() {
     ImGui::SameLine();
     if (ImGui::Button("Reset")) {
       simulator.reset();
+      csv.reset();
+      last_csv_elapsed = -1;
     }
 
     ImGui::End();
