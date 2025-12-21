@@ -8,16 +8,31 @@ on:
 
 jobs:
   build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            build_gui: OFF
+            build_cli: ON
+          - os: macos-latest
+            build_gui: ON
+            build_cli: ON
 
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
 
     steps:
-    - uses: actions/checkout@v4
-    - name: configure
-      run: ./configure
-    - name: make
-      run: make
-    - name: make check
-      run: make check
-    - name: make distcheck
-      run: make distcheck
+      - uses: actions/checkout@v4
+
+      - name: Configure (CMake)
+        run: >
+          cmake -S . -B build
+          -DTEAFACTORY_BUILD_GUI=${{ matrix.build_gui }}
+          -DTEAFACTORY_BUILD_CLI=${{ matrix.build_cli }}
+
+      - name: Build
+        run: cmake --build build -j
+
+      - name: Smoke test (CLI)
+        if: ${{ matrix.build_cli == 'ON' }}
+        run: ./build/tea_factory_simulator_cli --no-csv
