@@ -7,6 +7,10 @@
 #include "domain/TeaLeaf.h"
 #include "process/IProcess.h"
 
+namespace tea_io {
+class CsvWriter;
+} /* namespace tea_io */
+
 namespace tea {
 
 /* シミュレーションの実行設定です。 */
@@ -31,6 +35,9 @@ class Simulator final {
 
   /* 全工程（蒸し→揉捻→乾燥）を実行し、各ステップをログ出力します。 */
   void run(std::ostream& os);
+
+  /* CSV出力を伴って全工程を実行します（csv が null の場合は無効）。 */
+  void run(std::ostream& os, ::tea_io::CsvWriter* csv);
 
  private:
   /* 工程と継続時間を束ねたステージです。 */
