@@ -115,6 +115,18 @@ CSV出力や工程時間は CLI 引数で変更できます。
 ./build/tea_factory_simulator_cli --model gentle
 ```
 
+例（複数バッチを並列実行）:
+
+```bash
+./build/tea_factory_simulator_cli --batches 3 --no-csv
+```
+
+複数バッチでCSVを有効にすると、バッチごとに以下のファイルを生成します。
+
+- `tea_factory_cli_batch_0.csv`
+- `tea_factory_cli_batch_1.csv`
+- ...
+
 ### GUI版
 
 GUI版は **Start** を押すと、カレントディレクトリに
