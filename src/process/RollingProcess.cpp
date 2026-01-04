@@ -1,22 +1,53 @@
+/*
+ * @file RollingProcess.cpp
+ * @brief 揉捻工程のシミュレーションロジックを定義
+ *
+ * このファイルは、お茶の製造プロセスにおける揉捻工程の物理モデルと
+ * その状態更新ロジックを実装するRollingProcessクラスを含んでいます。
+ * 温度の冷却、水分量の減少、香気と色の増加などをシミュレートします。
+ */
+
 #include "process/RollingProcess.h"
 
 namespace tea {
 
-/* パラメータを指定して構築します。 */
+/*
+ * @brief RollingProcessのコンストラクタです。
+ *
+ * 指定されたRollingParamsパラメータを使用して揉捻工程を構築します。
+ *
+ * @param params 揉捻工程のパラメータ
+ */
 RollingProcess::RollingProcess(RollingParams params) : params_(params) {
 }
 
-/* 既定モデルで構築します。 */
+/*
+ * @brief RollingProcessの既定コンストラクタです。
+ *
+ * デフォルトモデルの揉捻工程パラメータを使用して構築します。
+ */
 RollingProcess::RollingProcess()
     : params_(make_model(ModelType::DEFAULT).rolling) {
 }
 
-/* 揉捻工程の種別を返します。 */
+/*
+ * @brief 揉捻工程の種別を返します。
+ *
+ * @return ProcessState::ROLLING
+ */
 ProcessState RollingProcess::state() const {
   return ProcessState::ROLLING;
 }
 
-/* 揉捻工程の 1 ステップ更新です。 */
+/*
+ * @brief 揉捻工程の1ステップ更新を適用します。
+ *
+ * 指定された時間間隔（dt_seconds）に基づいて、茶葉の状態（温度、水分、香気、色）を
+ * 更新します。温度は目標値へ緩和され、水分は減少し、香気と色は飽和しながら増加します。
+ *
+ * @param leaf 更新するTeaLeafオブジェクトへの参照
+ * @param dt_seconds 更新する時間間隔（秒）
+ */
 void RollingProcess::apply_step(TeaLeaf& leaf, int dt_seconds) const {
   /*
     揉捻は「圧力/摩擦で水分が抜ける + 香気が少し増える」挙動を
@@ -37,5 +68,3 @@ void RollingProcess::apply_step(TeaLeaf& leaf, int dt_seconds) const {
 }
 
 } /* namespace tea */
-
-

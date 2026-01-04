@@ -1,3 +1,12 @@
+/*
+ * @file main.cpp
+ * @brief CLI版のメインエントリポイント
+ *
+ * このファイルは、コマンドライン引数に基づいてシミュレーションを設定し、
+ * お茶の製造プロセスをシミュレートし、その結果をコンソール出力および
+ * CSVファイルに書き込みます。
+ */
+
 #include <iostream>
 #include <optional>
 #include <sstream>
@@ -8,7 +17,17 @@
 #include "domain/Model.h"
 #include "simulation/Simulator.h"
 
-/* CLI エントリポイントです。引数に応じて設定し、ログ/CSVを出力します。 */
+/*
+ * @brief CLIアプリケーションのメインエントリポイント
+ *
+ * コマンドライン引数をパースし、シミュレーション設定を行います。
+ * 複数のバッチを並行してシミュレートし、その進行状況をコンソールに表示し、
+ * 必要に応じてCSVファイルに書き込みます。
+ *
+ * @param argc コマンドライン引数の数
+ * @param argv コマンドライン引数の配列
+ * @return 0 成功、2 引数エラー
+ */
 int main(int argc, char** argv) {
   const tea_cli::Args args = tea_cli::parse_args(argc, argv);
   if (args.error.has_value()) {
@@ -59,7 +78,7 @@ int main(int argc, char** argv) {
     sims.push_back(std::move(s));
   }
 
-  std::vector<std::optional<tea_io::CsvWriter>> csvs;
+  std::vector<std::optional<te-io::CsvWriter>> csvs;
   csvs.resize(static_cast<std::size_t>(batches));
   if (args.csv_enabled) {
     for (int i = 0; i < batches; ++i) {
@@ -78,7 +97,7 @@ int main(int argc, char** argv) {
   while (any_running) {
     any_running = false;
     for (int i = 0; i < batches; ++i) {
-      ::tea_io::CsvWriter* csv_ptr = nullptr;
+      ::te-io::CsvWriter* csv_ptr = nullptr;
       if (args.csv_enabled) {
         csv_ptr = &(*csvs[static_cast<std::size_t>(i)]);
       }
@@ -102,5 +121,3 @@ int main(int argc, char** argv) {
 
   return 0;
 }
-
-

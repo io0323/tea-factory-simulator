@@ -1,22 +1,54 @@
+/*
+ * @file SteamingProcess.cpp
+ * @brief 蒸し工程のシミュレーションロジックを定義
+ *
+ * このファイルは、お茶の製造プロセスにおける蒸し工程の物理モデルと
+ * その状態更新ロジックを実装するSteamingProcessクラスを含んでいます。
+ * 温度の緩和、水分量の増加、香気と色の飽和増加などをシミュレートします。
+ */
+
 #include "process/SteamingProcess.h"
 
 namespace tea {
 
-/* パラメータを指定して構築します。 */
+/*
+ * @brief SteamingProcessのコンストラクタです。
+ *
+ * 指定されたSteamingParamsパラメータを使用して蒸し工程を構築します。
+ *
+ * @param params 蒸し工程のパラメータ
+ */
 SteamingProcess::SteamingProcess(SteamingParams params) : params_(params) {
 }
 
-/* 既定モデルで構築します。 */
+/*
+ * @brief SteamingProcessの既定コンストラクタです。
+ *
+ * デフォルトモデルの蒸し工程パラメータを使用して構築します。
+ */
 SteamingProcess::SteamingProcess()
     : params_(make_model(ModelType::DEFAULT).steaming) {
 }
 
-/* 蒸し工程の種別を返します。 */
+/*
+ * @brief 蒸し工程の種別を返します。
+ *
+ * @return ProcessState::STEAMING
+ */
 ProcessState SteamingProcess::state() const {
   return ProcessState::STEAMING;
 }
 
-/* 蒸し工程の 1 ステップ更新です。 */
+/*
+ * @brief 蒸し工程の1ステップ更新を適用します。
+ *
+ * 指定された時間間隔（dt_seconds）に基づいて、茶葉の状態（温度、水分、香気、色）を
+ * 更新します。温度は目標値へ近づくように緩和され、水分は微増し、香気と色は
+ * 上限に近づく飽和モデルで増加します。
+ *
+ * @param leaf 更新するTeaLeafオブジェクトへの参照
+ * @param dt_seconds 更新する時間間隔（秒）
+ */
 void SteamingProcess::apply_step(TeaLeaf& leaf, int dt_seconds) const {
   /*
     蒸しは「目標温度へ近づく」緩和モデルで表現します。
@@ -36,5 +68,3 @@ void SteamingProcess::apply_step(TeaLeaf& leaf, int dt_seconds) const {
 }
 
 } /* namespace tea */
-
-
