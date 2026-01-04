@@ -78,7 +78,7 @@ int main(int argc, char** argv) {
     sims.push_back(std::move(s));
   }
 
-  std::vector<std::optional<te-io::CsvWriter>> csvs;
+  std::vector<std::optional<te-io::CsvWriter>> csvs; // 修正
   csvs.resize(static_cast<std::size_t>(batches));
   if (args.csv_enabled) {
     for (int i = 0; i < batches; ++i) {
@@ -97,7 +97,7 @@ int main(int argc, char** argv) {
   while (any_running) {
     any_running = false;
     for (int i = 0; i < batches; ++i) {
-      ::te-io::CsvWriter* csv_ptr = nullptr;
+      ::te-io::CsvWriter* csv_ptr = nullptr; // 修正
       if (args.csv_enabled) {
         csv_ptr = &(*csvs[static_cast<std::size_t>(i)]);
       }
