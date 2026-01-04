@@ -90,3 +90,7 @@ if(TEAFACTORY_BUILD_GUI)
 endif()
 
 
+
+enable_testing()
+
+add_subdirectory(tests)
