@@ -33,6 +33,57 @@ float clamp01(float v) {
   return v;
 }
 
+/*
+  固定長のリングバッファ（履歴）です。
+  UIでトレンド（PlotLines）を描くために直近の値を保持します。
+*/
+class HistoryBuffer final {
+ public:
+  /* 指定容量で初期化します。 */
+  explicit HistoryBuffer(std::size_t capacity)
+      : data_(capacity, 0.0F), capacity_(capacity) {}
+
+  /* 全要素を0で初期化し、履歴を破棄します。 */
+  void clear() {
+    std::fill(data_.begin(), data_.end(), 0.0F);
+    head_ = 0;
+    size_ = 0;
+  }
+
+  /* 末尾へ追加します（満杯なら古い値から上書き）。 */
+  void push(float v) {
+    if (capacity_ == 0) {
+      return;
+    }
+    data_[head_] = v;
+    head_ = (head_ + 1) % capacity_;
+    if (size_ < capacity_) {
+      ++size_;
+    }
+  }
+
+  /* 現在保持している要素数を返します。 */
+  std::size_t size() const {
+    return size_;
+  }
+
+  /* PlotLines 用の連続配列（内部バッファ）を返します。 */
+  const float* data() const {
+    return data_.data();
+  }
+
+  /* PlotLines 用のオフセット（先頭位置）を返します。 */
+  int offset() const {
+    return static_cast<int>(head_);
+  }
+
+ private:
+  std::vector<float> data_;
+  std::size_t capacity_ = 0;
+  std::size_t head_ = 0;
+  std::size_t size_ = 0;
+};
+
 /* 値を [min, max] にクランプします。 */
 float clamp(float v, float min_v, float max_v) {
   if (v < min_v) {
@@ -179,6 +230,14 @@ int main() {
   int last_csv_elapsed = -1;
   int selected_batch = 0;
   int desired_batches = 1;
+  int last_history_elapsed = -1;
+  int last_history_selected_batch = -1;
+
+  HistoryBuffer moisture_hist(180);
+  HistoryBuffer temp_hist(180);
+  HistoryBuffer aroma_hist(180);
+  HistoryBuffer color_hist(180);
+  HistoryBuffer score_hist(180);
 
   using clock = std::chrono::steady_clock;
   auto last = clock::now();
@@ -220,6 +279,29 @@ int main() {
                      batch.temperature_c(),
                      batch.aroma(),
                      batch.color());
+    }
+
+    /*
+      履歴更新（トレンド表示用）:
+      - 1秒ごとにサンプル
+      - 選択バッチが変わったら履歴をリセット
+    */
+    if (selected_batch != last_history_selected_batch) {
+      last_history_selected_batch = selected_batch;
+      last_history_elapsed = -1;
+      moisture_hist.clear();
+      temp_hist.clear();
+      aroma_hist.clear();
+      color_hist.clear();
+      score_hist.clear();
+    }
+    if (elapsed != last_history_elapsed) {
+      last_history_elapsed = elapsed;
+      moisture_hist.push(static_cast<float>(batch.moisture()));
+      temp_hist.push(static_cast<float>(batch.temperature_c()));
+      aroma_hist.push(static_cast<float>(batch.aroma()));
+      color_hist.push(static_cast<float>(batch.color()));
+      score_hist.push(static_cast<float>(batch.quality_score()));
     }
 
     const float total_prog = total_progress_fraction(elapsed);
@@ -296,6 +378,55 @@ int main() {
       ImGui::Spacing();
       ImGui::Separator();
       ImGui::Spacing();
+
+      ImGui::TextUnformatted("Trends (last ~180s)");
+      ImGui::Separator();
+
+      const ImVec2 plot_size(-1.0F, 60.0F);
+      ImGui::PlotLines("Moisture",
+                       moisture_hist.data(),
+                       static_cast<int>(moisture_hist.size()),
+                       moisture_hist.offset(),
+                       nullptr,
+                       0.0F,
+                       1.0F,
+                       plot_size);
+
+      ImGui::PlotLines("Temp (C)",
+                       temp_hist.data(),
+                       static_cast<int>(temp_hist.size()),
+                       temp_hist.offset(),
+                       nullptr,
+                       0.0F,
+                       100.0F,
+                       plot_size);
+
+      ImGui::PlotLines("Aroma",
+                       aroma_hist.data(),
+                       static_cast<int>(aroma_hist.size()),
+                       aroma_hist.offset(),
+                       nullptr,
+                       0.0F,
+                       100.0F,
+                       plot_size);
+
+      ImGui::PlotLines("Color",
+                       color_hist.data(),
+                       static_cast<int>(color_hist.size()),
+                       color_hist.offset(),
+                       nullptr,
+                       0.0F,
+                       100.0F,
+                       plot_size);
+
+      ImGui::PlotLines("Quality",
+                       score_hist.data(),
+                       static_cast<int>(score_hist.size()),
+                       score_hist.offset(),
+                       nullptr,
+                       0.0F,
+                       100.0F,
+                       plot_size);
 
       ImGui::TextUnformatted("Quality");
       ImGui::Separator();
