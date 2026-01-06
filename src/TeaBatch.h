@@ -1,29 +1,30 @@
+/*
+ * @file TeaBatch.h
+ * @brief お茶のバッチ処理と状態管理の定義
+ *
+ * このファイルは、お茶の製造プロセスにおける単一のバッチの状態を管理する
+ * TeaBatchクラスのインターフェースを定義しています。各工程での状態変化、
+ * 品質スコア、および工程遷移ロジックが含まれます。
+ */
+
 #pragma once
 
 #include <string>
+#include <memory> // For std::unique_ptr
+
+// GUI版のモデル種別と工程状態の定義をdomainからインクルード
+#include "domain/Model.h"
+#include "domain/ProcessState.h"
+#include "process/IProcess.h" // For IProcess
+#include "domain/TeaLeaf.h" // For tea::TeaLeaf
 
 namespace tea_gui {
 
-/* GUI版のモデル種別です（係数セット切替用）。 */
-enum class ModelType {
-  DEFAULT,
-  GENTLE,
-  AGGRESSIVE
-};
+// tea::ModelTypeとtea::ProcessStateはdomain/Model.hとdomain/ProcessState.hで定義されているため、ここでは不要。
+// ただし、to_string関数はtea_gui::名前空間に属するため、ここではそのまま残します。
+const char* to_string(tea::ModelType type);
+const char* to_string(tea::ProcessState state);
 
-/* 表示用のモデル名を返します。 */
-const char* to_string(ModelType type);
-
-/* 製造工程の状態（GUI版）を表す列挙です。 */
-enum class ProcessState {
-  STEAMING,
-  ROLLING,
-  DRYING,
-  FINISHED
-};
-
-/* 工程名を表示用文字列に変換します。 */
-const char* to_string(ProcessState state);
 
 /*
   茶葉1バッチの状態と、工程遷移・物性更新ロジックを保持します。
@@ -35,7 +36,7 @@ class TeaBatch final {
   TeaBatch();
 
   /* モデル（係数セット）を設定します。 */
-  void set_model(ModelType type);
+  void set_model(tea::ModelType type);
 
   /* 初期状態へ戻します。 */
   void reset();
@@ -44,7 +45,7 @@ class TeaBatch final {
   void update(double delta_seconds);
 
   /* 現在工程を返します。 */
-  ProcessState process() const;
+  tea::ProcessState process() const;
 
   /* 経過時間（秒）を返します。 */
   int elapsed_seconds() const;
@@ -71,20 +72,17 @@ class TeaBatch final {
   /* 工程の閾値で次工程へ進めます。 */
   void advance_stage_if_needed();
 
-  ModelType model_ = ModelType::DEFAULT;
-
-  ProcessState process_ = ProcessState::STEAMING;
+  tea::ModelType model_ = tea::ModelType::DEFAULT;
+  tea::ModelParams model_params_;
+  
+  std::unique_ptr<tea::IProcess> current_process_handler_;
+  
   double stage_elapsed_seconds_ = 0.0;
   double total_elapsed_seconds_ = 0.0;
 
-  double moisture_ = 0.75;
-  double temperature_c_ = 25.0;
-  double aroma_ = 10.0;
-  double color_ = 10.0;
+  tea::TeaLeaf leaf_; // 追加
 
   double quality_score_final_ = 0.0;
 };
 
 } /* namespace tea_gui */
-
-
