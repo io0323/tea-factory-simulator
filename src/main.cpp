@@ -1,5 +1,6 @@
 #include <chrono>
 #include <cstdio>
+#include <algorithm>
 #include <optional>
 
 #include "Simulator.h"
@@ -30,6 +31,87 @@ float clamp01(float v) {
     return 1.0F;
   }
   return v;
+}
+
+/* 値を [min, max] にクランプします。 */
+float clamp(float v, float min_v, float max_v) {
+  if (v < min_v) {
+    return min_v;
+  }
+  if (v > max_v) {
+    return max_v;
+  }
+  return v;
+}
+
+/* 工程の総所要時間（秒）を返します（表示用固定値）。 */
+int total_process_seconds() {
+  return 120;
+}
+
+/* 経過秒から工程全体の進捗率 [0, 1] を返します。 */
+float total_progress_fraction(int elapsed_seconds) {
+  const int total = total_process_seconds();
+  if (total <= 0) {
+    return 0.0F;
+  }
+  return clamp01(static_cast<float>(elapsed_seconds) /
+                 static_cast<float>(total));
+}
+
+/* 品質ステータスに応じた色を返します。 */
+ImVec4 quality_color(const std::string& status) {
+  if (status == "GOOD") {
+    return ImVec4(0.10F, 0.80F, 0.45F, 1.00F);
+  }
+  if (status == "OK") {
+    return ImVec4(0.95F, 0.75F, 0.15F, 1.00F);
+  }
+  return ImVec4(0.95F, 0.25F, 0.25F, 1.00F);
+}
+
+/* 工程状態に応じた色を返します。 */
+ImVec4 process_color(tea_gui::ProcessState state) {
+  if (state == tea_gui::ProcessState::STEAMING) {
+    return ImVec4(0.35F, 0.70F, 0.95F, 1.00F);
+  }
+  if (state == tea_gui::ProcessState::ROLLING) {
+    return ImVec4(0.75F, 0.55F, 0.95F, 1.00F);
+  }
+  if (state == tea_gui::ProcessState::DRYING) {
+    return ImVec4(0.95F, 0.55F, 0.20F, 1.00F);
+  }
+  return ImVec4(0.60F, 0.60F, 0.65F, 1.00F);
+}
+
+/* ダッシュボード向けにテーマ/余白を調整します。 */
+void apply_dashboard_style() {
+  ImGuiStyle& style = ImGui::GetStyle();
+
+  style.WindowRounding = 8.0F;
+  style.FrameRounding = 6.0F;
+  style.GrabRounding = 6.0F;
+  style.ScrollbarRounding = 8.0F;
+  style.TabRounding = 6.0F;
+
+  style.WindowPadding = ImVec2(14.0F, 12.0F);
+  style.FramePadding = ImVec2(10.0F, 6.0F);
+  style.ItemSpacing = ImVec2(10.0F, 8.0F);
+  style.ItemInnerSpacing = ImVec2(8.0F, 6.0F);
+}
+
+/* ラベルと値を1行で描画します。 */
+void draw_kv_line(const char* label, const char* value, float label_width) {
+  ImGui::TextUnformatted(label);
+  ImGui::SameLine(label_width);
+  ImGui::TextUnformatted(value);
+}
+
+/* 色付きのバッジ（チップ）を描画します。 */
+void draw_badge(const char* text, const ImVec4& color) {
+  ImGui::PushStyleColor(ImGuiCol_Text, color);
+  ImGui::TextUnformatted(text);
+  ImGui::PopStyleColor();
 }
 
 /* プログレスバー + 数値を同一行で描画します。 */
@@ -84,8 +166,10 @@ int main() {
   IMGUI_CHECKVERSION();
   ImGui::CreateContext();
   ImGuiIO& io = ImGui::GetIO();
-  (void)io;
+  io.IniFilename = "tea_factory_imgui.ini";
+  io.FontGlobalScale = 1.05F;
   ImGui::StyleColorsDark();
+  apply_dashboard_style();
 
   ImGui_ImplGlfw_InitForOpenGL(window, true);
   ImGui_ImplOpenGL3_Init(glsl_version);
@@ -112,24 +196,22 @@ int main() {
     ImGui_ImplGlfw_NewFrame();
     ImGui::NewFrame();
 
-    ImGui::SetNextWindowPos(ImVec2(10, 10), ImGuiCond_Always);
-    ImGui::SetNextWindowSize(ImVec2(700, 340), ImGuiCond_Always);
-    ImGui::Begin("TeaFactory Simulator", nullptr,
-                 ImGuiWindowFlags_NoResize |
-                     ImGuiWindowFlags_NoCollapse);
+    ImGui::SetNextWindowPos(ImVec2(10, 10), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowSize(ImVec2(920, 520), ImGuiCond_FirstUseEver);
+    ImGui::Begin("TeaFactory Simulator", nullptr, ImGuiWindowFlags_NoCollapse);
 
     desired_batches = simulator.batch_count();
     if (selected_batch >= simulator.batch_count()) {
       selected_batch = simulator.batch_count() - 1;
     }
     const tea_gui::TeaBatch& batch = simulator.batch_at(selected_batch);
+    const int elapsed = batch.elapsed_seconds();
 
     /*
       GUI版CSV出力:
       - Start時に tea_factory_gui.csv を新規作成（上書き）
       - 実行中、elapsedSeconds が進んだタイミング（=1秒ごと）で1行追記
     */
-    const int elapsed = batch.elapsed_seconds();
     if (csv.has_value() && elapsed != last_csv_elapsed) {
       last_csv_elapsed = elapsed;
       csv->write_row(tea_gui::to_string(batch.process()),
@@ -140,119 +222,196 @@ int main() {
                      batch.color());
     }
 
-    ImGui::Text("Current Process: %s", tea_gui::to_string(batch.process()));
-    ImGui::Text("Elapsed Time: %d sec", batch.elapsed_seconds());
-    ImGui::Text("Batch: %d / %d", selected_batch + 1, simulator.batch_count());
+    const float total_prog = total_progress_fraction(elapsed);
+    char total_overlay[64];
+    std::snprintf(total_overlay, sizeof(total_overlay), "%ds / %ds",
+                  elapsed, total_process_seconds());
+
+    ImGui::TextUnformatted("Overview");
     ImGui::Separator();
+    ImGui::ProgressBar(total_prog, ImVec2(-1.0F, 0.0F), total_overlay);
+    ImGui::Spacing();
 
-    const float bar_width = 360.0F;
+    char process_text[64];
+    std::snprintf(process_text, sizeof(process_text), "%s",
+                  tea_gui::to_string(batch.process()));
+    char elapsed_text[64];
+    std::snprintf(elapsed_text, sizeof(elapsed_text), "%d sec", elapsed);
+    char batch_text[64];
+    std::snprintf(batch_text, sizeof(batch_text), "%d / %d",
+                  selected_batch + 1, simulator.batch_count());
 
-    const float moisture = static_cast<float>(batch.moisture());
-    const float moisture_pct = moisture * 100.0F;
-    char moisture_text[32];
-    std::snprintf(moisture_text, sizeof(moisture_text), "%.0f%%",
-                  moisture_pct);
-    draw_bar("Moisture", moisture, moisture_text, bar_width);
+    const float label_width = 160.0F;
+    draw_kv_line("Current Process", process_text, label_width);
+    ImGui::SameLine();
+    draw_badge(simulator.is_running() ? "RUNNING" : "PAUSED",
+               simulator.is_running()
+                   ? ImVec4(0.20F, 0.85F, 0.55F, 1.00F)
+                   : ImVec4(0.95F, 0.75F, 0.15F, 1.00F));
+    draw_kv_line("Elapsed Time", elapsed_text, label_width);
+    draw_kv_line("Batch", batch_text, label_width);
+    ImGui::Spacing();
 
-    const float temp_c = static_cast<float>(batch.temperature_c());
-    const float temp_fraction = clamp01(temp_c / 100.0F);
-    char temp_text[32];
-    std::snprintf(temp_text, sizeof(temp_text), "%.0fC", temp_c);
-    draw_bar("Temperature", temp_fraction, temp_text, bar_width);
+    if (ImGui::BeginTable("layout", 2,
+                          ImGuiTableFlags_SizingStretchProp |
+                              ImGuiTableFlags_BordersInnerV)) {
+      ImGui::TableSetupColumn("Metrics", ImGuiTableColumnFlags_WidthStretch,
+                              0.62F);
+      ImGui::TableSetupColumn("Controls", ImGuiTableColumnFlags_WidthStretch,
+                              0.38F);
+      ImGui::TableNextRow();
 
-    const float aroma = static_cast<float>(batch.aroma());
-    const float aroma_fraction = clamp01(aroma / 100.0F);
-    char aroma_text[32];
-    std::snprintf(aroma_text, sizeof(aroma_text), "%.0f", aroma);
-    draw_bar("Aroma", aroma_fraction, aroma_text, bar_width);
+      ImGui::TableSetColumnIndex(0);
+      ImGui::TextUnformatted("Metrics");
+      ImGui::Separator();
 
-    const float color = static_cast<float>(batch.color());
-    const float color_fraction = clamp01(color / 100.0F);
-    char color_text[32];
-    std::snprintf(color_text, sizeof(color_text), "%.0f", color);
-    draw_bar("Color", color_fraction, color_text, bar_width);
+      const float bar_width = clamp(ImGui::GetContentRegionAvail().x - 20.0F,
+                                    260.0F, 520.0F);
 
-    ImGui::Separator();
+      const float moisture = static_cast<float>(batch.moisture());
+      const float moisture_pct = moisture * 100.0F;
+      char moisture_text[32];
+      std::snprintf(moisture_text, sizeof(moisture_text), "%.0f%%",
+                    moisture_pct);
+      draw_bar("Moisture", moisture, moisture_text, bar_width);
 
-    const double score = batch.quality_score();
-    ImGui::Text("Quality Score: %.0f", score);
-    ImGui::Text("Status: %s", batch.quality_status().c_str());
+      const float temp_c = static_cast<float>(batch.temperature_c());
+      const float temp_fraction = clamp01(temp_c / 100.0F);
+      char temp_text[32];
+      std::snprintf(temp_text, sizeof(temp_text), "%.0fC", temp_c);
+      draw_bar("Temperature", temp_fraction, temp_text, bar_width);
 
-    ImGui::Separator();
+      const float aroma = static_cast<float>(batch.aroma());
+      const float aroma_fraction = clamp01(aroma / 100.0F);
+      char aroma_text[32];
+      std::snprintf(aroma_text, sizeof(aroma_text), "%.0f", aroma);
+      draw_bar("Aroma", aroma_fraction, aroma_text, bar_width);
 
-    /*
-      モデル選択:
-      - 停止中のみ変更可能
-      - 変更時は初期状態へリセットして適用します
-    */
-    int model_idx = 0;
-    {
-      const tea_gui::ModelType m = simulator.model();
-      if (m == tea_gui::ModelType::GENTLE) {
-        model_idx = 1;
-      } else if (m == tea_gui::ModelType::AGGRESSIVE) {
-        model_idx = 2;
+      const float color = static_cast<float>(batch.color());
+      const float color_fraction = clamp01(color / 100.0F);
+      char color_text[32];
+      std::snprintf(color_text, sizeof(color_text), "%.0f", color);
+      draw_bar("Color", color_fraction, color_text, bar_width);
+
+      ImGui::Spacing();
+      ImGui::Separator();
+      ImGui::Spacing();
+
+      ImGui::TextUnformatted("Quality");
+      ImGui::Separator();
+
+      const float score = static_cast<float>(batch.quality_score());
+      char score_text[32];
+      std::snprintf(score_text, sizeof(score_text), "%.0f", score);
+      ImGui::ProgressBar(clamp01(score / 100.0F), ImVec2(-1.0F, 0.0F),
+                         score_text);
+
+      const std::string status = batch.quality_status();
+      ImGui::TextUnformatted("Status");
+      ImGui::SameLine();
+      draw_badge(status.c_str(), quality_color(status));
+
+      ImGui::Spacing();
+      ImGui::TextUnformatted("Current Stage");
+      ImGui::SameLine();
+      draw_badge(tea_gui::to_string(batch.process()),
+                 process_color(batch.process()));
+
+      ImGui::TableSetColumnIndex(1);
+      ImGui::TextUnformatted("Controls");
+      ImGui::Separator();
+
+      /*
+        モデル選択:
+          - 停止中のみ変更可能
+          - 変更時は初期状態へリセットして適用します
+      */
+      int model_idx = 0;
+      {
+        const tea_gui::ModelType m = simulator.model();
+        if (m == tea_gui::ModelType::GENTLE) {
+          model_idx = 1;
+        } else if (m == tea_gui::ModelType::AGGRESSIVE) {
+          model_idx = 2;
+        }
       }
-    }
-    const char* model_items[] = {"default", "gentle", "aggressive"};
-    ImGui::TextUnformatted("Model");
-    ImGui::SameLine(140.0F);
-    if (ImGui::Combo("##model", &model_idx, model_items, 3)) {
-      if (!simulator.is_running()) {
+      const char* model_items[] = {"default", "gentle", "aggressive"};
+      ImGui::BeginDisabled(simulator.is_running());
+      ImGui::TextUnformatted("Model");
+      ImGui::SameLine(label_width);
+      ImGui::SetNextItemWidth(-1.0F);
+      if (ImGui::Combo("##model", &model_idx, model_items, 3)) {
         const tea_gui::ModelType next =
-            (model_idx == 1) ? tea_gui::ModelType::GENTLE :
-            (model_idx == 2) ? tea_gui::ModelType::AGGRESSIVE :
-                               tea_gui::ModelType::DEFAULT;
+            (model_idx == 1) ? tea_gui::ModelType::GENTLE
+            : (model_idx == 2) ? tea_gui::ModelType::AGGRESSIVE
+                               : tea_gui::ModelType::DEFAULT;
         simulator.set_model(next);
       }
-    }
-
-    ImGui::TextUnformatted("Batches");
-    ImGui::SameLine(140.0F);
-    ImGui::SetNextItemWidth(120.0F);
-    int tmp_batches = desired_batches;
-    if (ImGui::InputInt("##batches", &tmp_batches)) {
-      if (tmp_batches < 1) {
-        tmp_batches = 1;
+      ImGui::EndDisabled();
+      if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled) &&
+          simulator.is_running()) {
+        ImGui::SetTooltip("Pauseしてから変更できます。");
       }
-      if (tmp_batches > 16) {
-        tmp_batches = 16;
+
+      ImGui::BeginDisabled(simulator.is_running());
+      ImGui::TextUnformatted("Batches");
+      ImGui::SameLine(label_width);
+      ImGui::SetNextItemWidth(120.0F);
+      int tmp_batches = desired_batches;
+      if (ImGui::InputInt("##batches", &tmp_batches)) {
+        if (tmp_batches < 1) {
+          tmp_batches = 1;
+        }
+        if (tmp_batches > 16) {
+          tmp_batches = 16;
+        }
+        desired_batches = tmp_batches;
       }
-      desired_batches = tmp_batches;
-    }
-    ImGui::SameLine();
-    if (ImGui::Button("Apply") && !simulator.is_running()) {
-      simulator.set_batch_count(desired_batches);
-      selected_batch = 0;
-      csv.reset();
-      last_csv_elapsed = -1;
-    }
-
-    ImGui::TextUnformatted("Select");
-    ImGui::SameLine(140.0F);
-    int tmp_sel = selected_batch;
-    if (ImGui::SliderInt("##batchsel", &tmp_sel, 0,
-                         std::max(0, simulator.batch_count() - 1))) {
-      selected_batch = tmp_sel;
-    }
-
-    if (ImGui::Button("Start")) {
-      simulator.start();
-      if (!csv.has_value()) {
-        csv.emplace("tea_factory_gui.csv");
-        csv->write_header();
+      ImGui::SameLine();
+      if (ImGui::Button("Apply")) {
+        simulator.set_batch_count(desired_batches);
+        selected_batch = 0;
+        csv.reset();
         last_csv_elapsed = -1;
       }
-    }
-    ImGui::SameLine();
-    if (ImGui::Button("Pause")) {
-      simulator.pause();
-    }
-    ImGui::SameLine();
-    if (ImGui::Button("Reset")) {
-      simulator.reset();
-      csv.reset();
-      last_csv_elapsed = -1;
+      ImGui::EndDisabled();
+      if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled) &&
+          simulator.is_running()) {
+        ImGui::SetTooltip("Pauseしてから変更できます。");
+      }
+
+      ImGui::TextUnformatted("Select");
+      ImGui::SameLine(label_width);
+      int tmp_sel = selected_batch;
+      if (ImGui::SliderInt("##batchsel", &tmp_sel, 0,
+                           std::max(0, simulator.batch_count() - 1))) {
+        selected_batch = tmp_sel;
+      }
+
+      ImGui::Spacing();
+      ImGui::Separator();
+      ImGui::Spacing();
+
+      if (ImGui::Button("Start", ImVec2(-1.0F, 0.0F))) {
+        simulator.start();
+        if (!csv.has_value()) {
+          csv.emplace("tea_factory_gui.csv");
+          csv->write_header();
+          last_csv_elapsed = -1;
+        }
+      }
+
+      if (ImGui::Button("Pause", ImVec2(-1.0F, 0.0F))) {
+        simulator.pause();
+      }
+
+      if (ImGui::Button("Reset", ImVec2(-1.0F, 0.0F))) {
+        simulator.reset();
+        csv.reset();
+        last_csv_elapsed = -1;
+      }
+
+      ImGui::EndTable();
     }
 
     ImGui::End();
