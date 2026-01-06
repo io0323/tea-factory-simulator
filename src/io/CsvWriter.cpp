@@ -12,7 +12,7 @@
 #include <algorithm> // For std::clamp
 #include <iomanip>   // For std::fixed, std::setprecision
 
-namespace te-io {
+namespace tea_io {
 
 /*
  * @brief 出力先パスを指定してCsvWriterを構築します。
@@ -117,4 +117,4 @@ const char* CsvWriter::quality_status(double score) {
   return "BAD";
 }
 
-} /* namespace te-io */
+} /* namespace tea_io */

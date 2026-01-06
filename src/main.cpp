@@ -119,7 +119,7 @@ int main() {
   ImGui_ImplOpenGL3_Init(glsl_version);
 
   tea_gui::Simulator simulator;
-  std::optional<te-io::CsvWriter> csv;
+  std::optional<tea_io::CsvWriter> csv;
   int last_csv_elapsed = -1;
   int selected_batch = 0;
   int desired_batches = 1;
