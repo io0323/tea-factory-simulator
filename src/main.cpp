@@ -1,3 +1,13 @@
+/*
+ * @file main.cpp
+ * @brief GUI版のメインエントリポイント
+ *
+ * このファイルは、GLFWとDear ImGuiを使用してGUIアプリケーションを初期化し、
+ * シミュレーションの進行状況をリアルタイムで表示および操作します。
+ * お茶の製造プロセスを視覚化し、ユーザーがシミュレーションパラメータを
+ * 調整できるようにします。
+ */
+
 #include <chrono>
 #include <cstdio>
 #include <optional>
@@ -21,7 +31,12 @@
 
 namespace {
 
-/* 値を [0, 1] にクランプします。 */
+/*
+ * @brief 値を [0, 1] にクランプします。
+ *
+ * @param v クランプする値
+ * @return クランプされた値
+ */
 float clamp01(float v) {
   if (v < 0.0F) {
     return 0.0F;
@@ -32,16 +47,22 @@ float clamp01(float v) {
   return v;
 }
 
-/* プログレスバー + 数値を同一行で描画します。 */
+/*
+ * @brief プログレスバー + 数値を同一行で描画します。
+ *
+ * UI 要件:
+ *   - ImGui::ProgressBar を使用
+ *   - 1 画面ダッシュボードで状態を可視化
+ *
+ * @param label ラベル文字列
+ * @param fraction プログレスバーの割合 (0.0F-1.0F)
+ * @param overlay プログレスバー上に表示するオーバーレイ文字列
+ * @param width プログレスバーの幅
+ */
 void draw_bar(const char* label,
               float fraction,
               const char* overlay,
               float width) {
-  /*
-    UI 要件:
-      - ImGui::ProgressBar を使用
-      - 1 画面ダッシュボードで状態を可視化
-  */
   ImGui::TextUnformatted(label);
   ImGui::SameLine(140.0F);
   ImGui::ProgressBar(clamp01(fraction), ImVec2(width, 0.0F), overlay);
@@ -49,7 +70,14 @@ void draw_bar(const char* label,
 
 } /* namespace */
 
-/* GUI アプリのエントリポイントです。 */
+/*
+ * @brief GUIアプリケーションのメインエントリポイント
+ *
+ * GLFW、OpenGL、Dear ImGuiを初期化し、シミュレーションループを実行します。
+ * シミュレーションの状態を更新し、GUIで表示します。
+ *
+ * @return 0 成功、1 失敗
+ */
 int main() {
   /*
     ビルド:
@@ -187,10 +215,10 @@ int main() {
     */
     int model_idx = 0;
     {
-      const tea_gui::ModelType m = simulator.model();
-      if (m == tea_gui::ModelType::GENTLE) {
+      const tea::ModelType m = simulator.model(); // 変更
+      if (m == tea::ModelType::GENTLE) { // 変更
         model_idx = 1;
-      } else if (m == tea_gui::ModelType::AGGRESSIVE) {
+      } else if (m == tea::ModelType::AGGRESSIVE) { // 変更
         model_idx = 2;
       }
     }
@@ -199,10 +227,10 @@ int main() {
     ImGui::SameLine(140.0F);
     if (ImGui::Combo("##model", &model_idx, model_items, 3)) {
       if (!simulator.is_running()) {
-        const tea_gui::ModelType next =
-            (model_idx == 1) ? tea_gui::ModelType::GENTLE :
-            (model_idx == 2) ? tea_gui::ModelType::AGGRESSIVE :
-                               tea_gui::ModelType::DEFAULT;
+        const tea::ModelType next = // 変更
+            (model_idx == 1) ? tea::ModelType::GENTLE :
+            (model_idx == 2) ? tea::ModelType::AGGRESSIVE :
+                               tea::ModelType::DEFAULT; // 変更
         simulator.set_model(next);
       }
     }
@@ -277,5 +305,3 @@ int main() {
   glfwTerminate();
   return 0;
 }
-
-

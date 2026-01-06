@@ -1,24 +1,56 @@
+/*
+ * @file DryingProcess.cpp
+ * @brief 乾燥工程のシミュレーションロジックを定義
+ *
+ * このファイルは、お茶の製造プロセスにおける乾燥工程の物理モデルと
+ * その状態更新ロジックを実装するDryingProcessクラスを含んでいます。
+ * 水分量の指数減衰、温度の緩和、香気への影響などをシミュレートします。
+ */
+
 #include "process/DryingProcess.h"
 
-#include <cmath>
+#include <cmath> // For std::exp
 
 namespace tea {
 
-/* パラメータを指定して構築します。 */
+/*
+ * @brief DryingProcessのコンストラクタです。
+ *
+ * 指定されたDryingParamsパラメータを使用して乾燥工程を構築します。
+ *
+ * @param params 乾燥工程のパラメータ
+ */
 DryingProcess::DryingProcess(DryingParams params) : params_(params) {
 }
 
-/* 既定モデルで構築します。 */
+/*
+ * @brief DryingProcessの既定コンストラクタです。
+ *
+ * デフォルトモデルの乾燥工程パラメータを使用して構築します。
+ */
 DryingProcess::DryingProcess()
     : params_(make_model(ModelType::DEFAULT).drying) {
 }
 
-/* 乾燥工程の種別を返します。 */
+/*
+ * @brief 乾燥工程の種別を返します。
+ *
+ * @return ProcessState::DRYING
+ */
 ProcessState DryingProcess::state() const {
   return ProcessState::DRYING;
 }
 
-/* 乾燥工程の 1 ステップ更新です。 */
+/*
+ * @brief 乾燥工程の1ステップ更新を適用します。
+ *
+ * 指定された時間間隔（dt_seconds）に基づいて、茶葉の状態（温度、水分、香気、色）を
+ * 更新します。水分は指数減衰し、温度は目標値へ緩和、香気は過熱時に劣化し、
+ * それ以外の場合は僅かに整います。
+ *
+ * @param leaf 更新するTeaLeafオブジェクトへの参照
+ * @param dt_seconds 更新する時間間隔（秒）
+ */
 void DryingProcess::apply_step(TeaLeaf& leaf, int dt_seconds) const {
   /*
     乾燥は「水分が指数関数的に減る」近似が扱いやすいので、指数減衰で
@@ -48,5 +80,3 @@ void DryingProcess::apply_step(TeaLeaf& leaf, int dt_seconds) const {
 }
 
 } /* namespace tea */
-
-
