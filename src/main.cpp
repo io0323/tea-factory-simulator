@@ -165,6 +165,29 @@ void draw_badge(const char* text, const ImVec4& color) {
   ImGui::PopStyleColor();
 }
 
+/*
+  キーボードショートカットを処理します。
+  入力中（テキスト入力フォーカス等）の誤動作を避けるため、
+  WantTextInput の間は処理しません。
+*/
+void handle_shortcuts(const ImGuiIO& io, tea_gui::Simulator& simulator) {
+  if (io.WantTextInput) {
+    return;
+  }
+
+  if (ImGui::IsKeyPressed(ImGuiKey_Space)) {
+    if (simulator.is_running()) {
+      simulator.pause();
+    } else {
+      simulator.start();
+    }
+  }
+
+  if (ImGui::IsKeyPressed(ImGuiKey_R)) {
+    simulator.reset();
+  }
+}
+
 /* プログレスバー + 数値を同一行で描画します。 */
 void draw_bar(const char* label,
               float fraction,
@@ -239,6 +262,9 @@ int main() {
   HistoryBuffer color_hist(180);
   HistoryBuffer score_hist(180);
 
+  bool csv_enabled = true;
+  char csv_path[256] = "tea_factory_gui.csv";
+
   using clock = std::chrono::steady_clock;
   auto last = clock::now();
 
@@ -254,6 +280,8 @@ int main() {
     ImGui_ImplOpenGL3_NewFrame();
     ImGui_ImplGlfw_NewFrame();
     ImGui::NewFrame();
+
+    handle_shortcuts(io, simulator);
 
     ImGui::SetNextWindowPos(ImVec2(10, 10), ImGuiCond_FirstUseEver);
     ImGui::SetNextWindowSize(ImVec2(920, 520), ImGuiCond_FirstUseEver);
@@ -452,6 +480,26 @@ int main() {
       ImGui::TextUnformatted("Controls");
       ImGui::Separator();
 
+      ImGui::TextUnformatted("Settings");
+      ImGui::Separator();
+
+      ImGui::Checkbox("CSV output", &csv_enabled);
+      ImGui::BeginDisabled(simulator.is_running());
+      ImGui::SetNextItemWidth(-1.0F);
+      ImGui::InputText("CSV path", csv_path, sizeof(csv_path));
+      ImGui::EndDisabled();
+      if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled) &&
+          simulator.is_running()) {
+        ImGui::SetTooltip("Pauseしてから変更できます。");
+      }
+
+      ImGui::Spacing();
+      ImGui::TextUnformatted("Shortcuts");
+      ImGui::Separator();
+      ImGui::BulletText("Space: Start/Pause");
+      ImGui::BulletText("R: Reset");
+      ImGui::Spacing();
+
       /*
         モデル選択:
           - 停止中のみ変更可能
@@ -525,11 +573,11 @@ int main() {
 
       if (ImGui::Button("Start", ImVec2(-1.0F, 0.0F))) {
         simulator.start();
-        if (!csv.has_value()) {
-          csv.emplace("tea_factory_gui.csv");
+        if (csv_enabled && !csv.has_value()) {
+          csv.emplace(csv_path);
           csv->write_header();
-          last_csv_elapsed = -1;
         }
+        last_csv_elapsed = -1;
       }
 
       if (ImGui::Button("Pause", ImVec2(-1.0F, 0.0F))) {
