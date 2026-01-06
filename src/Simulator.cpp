@@ -28,7 +28,7 @@ Simulator::Simulator() {
  *
  * @param type 設定するモデルのタイプ
  */
-void Simulator::set_model(ModelType type) {
+void Simulator::set_model(tea::ModelType type) {
   if (running_) {
     return;
   }
@@ -44,7 +44,7 @@ void Simulator::set_model(ModelType type) {
  *
  * @return 現在のModelType
  */
-ModelType Simulator::model() const {
+tea::ModelType Simulator::model() const {
   return model_;
 }
 
@@ -57,7 +57,7 @@ void Simulator::start() {
   if (batches_.empty()) {
     return;
   }
-  if (batches_.front().process() == ProcessState::FINISHED) {
+  if (batches_.front().process() == tea::ProcessState::FINISHED) {
     return;
   }
   running_ = true;
@@ -97,10 +97,10 @@ void Simulator::update(double delta_seconds) {
   }
   bool any_active = false;
   for (TeaBatch& b : batches_) {
-    if (b.process() != ProcessState::FINISHED) {
+    if (b.process() != tea::ProcessState::FINISHED) {
       b.update(delta_seconds);
     }
-    if (b.process() != ProcessState::FINISHED) {
+    if (b.process() != tea::ProcessState::FINISHED) {
       any_active = true;
     }
   }

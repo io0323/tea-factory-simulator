@@ -6,7 +6,8 @@ namespace tea {
 enum class ProcessState {
   STEAMING,
   ROLLING,
-  DRYING
+  DRYING,
+  FINISHED
 };
 
 /* 工程名をログ出力用の文字列に変換します。 */
@@ -18,6 +19,8 @@ inline const char* to_string(ProcessState s) {
       return "ROLLING";
     case ProcessState::DRYING:
       return "DRYING";
+    case ProcessState::FINISHED:
+      return "FINISHED";
   }
   return "UNKNOWN";
 }

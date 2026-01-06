@@ -73,6 +73,9 @@ if(TEAFACTORY_BUILD_GUI)
     src/main.cpp
     src/io/CsvWriter.cpp
     src/domain/Model.cpp
+    src/process/SteamingProcess.cpp
+    src/process/RollingProcess.cpp
+    src/process/DryingProcess.cpp
     src/TeaBatch.cpp
     src/Simulator.cpp
   )
