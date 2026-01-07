@@ -5,6 +5,29 @@
 
 namespace tea_gui {
 
+namespace {
+
+/*
+ * @brief モデル種別に応じた係数倍率を返します。
+ *
+ * GUI版の工程ロジックは読みやすさ重視で係数を直書きしますが、モデル差分は
+ * 「一部係数だけがDEFAULTのまま」という不整合が出やすいので倍率で統一します。
+ *
+ * @param type モデル種別
+ * @return 係数倍率（DEFAULT=1）
+ */
+double model_scale(ModelType type) {
+  if (type == ModelType::GENTLE) {
+    return 0.75;
+  }
+  if (type == ModelType::AGGRESSIVE) {
+    return 1.25;
+  }
+  return 1.0;
+}
+
+} /* namespace */
+
 /* 表示用のモデル名を返します。 */
 const char* to_string(ModelType type) {
   switch (type) {
@@ -64,102 +87,77 @@ void TeaBatch::update(double delta_seconds) {
     return;
   }
 
-  const double dt = std::max(0.0, delta_seconds);
-  stage_elapsed_seconds_ += dt;
-  total_elapsed_seconds_ += dt;
-
   /*
-    状態更新は「工程ごとに連続時間の微小更新」を行います。
-    ここでは複雑な物理モデルは避け、読みやすい決定論式にします。
-
-    - STEAMING:
-      温度は目標値へ緩和（一次遅れ）
-      moisture は微増、aroma は飽和しながら増加
-
-    - ROLLING:
-      温度は目標値へ緩和（冷却寄り）
-      moisture は減少（含水率が高いほど抜けやすい）
-      aroma/color は飽和しながら緩やかに増加
-
-    - DRYING:
-      moisture は指数減衰（乾くほど減りにくい）
-      過熱時は aroma が劣化
+    1フレームで工程残り時間を超える dt が来ることがあります。
+    その場合、超過分は次工程へ繰り越さないと工程境界の挙動が不連続になります。
   */
-  if (process_ == ProcessState::STEAMING) {
-    double target_temp_c = 95.0;
-    double heat_k = 0.08;
-    double moisture_gain_per_s = 0.0008;
-    double aroma_gain_per_s = 1.0;
-    double color_gain_per_s = 0.2;
+  double remaining_dt = std::max(0.0, delta_seconds);
+  const double k = model_scale(model_);
 
-    if (model_ == ModelType::GENTLE) {
-      heat_k = 0.05;
-      moisture_gain_per_s = 0.0006;
-      aroma_gain_per_s = 0.7;
-    } else if (model_ == ModelType::AGGRESSIVE) {
-      heat_k = 0.11;
-      moisture_gain_per_s = 0.0011;
-      aroma_gain_per_s = 1.4;
+  while (remaining_dt > 0.0 && process_ != ProcessState::FINISHED) {
+    const double remaining_stage = stage_remaining_seconds();
+    if (remaining_stage <= 0.0) {
+      advance_stage_if_needed();
+      continue;
     }
 
-    temperature_c_ += (target_temp_c - temperature_c_) * heat_k * dt;
-    moisture_ += moisture_gain_per_s * dt;
-    aroma_ += aroma_gain_per_s * dt * (1.0 - aroma_ / 100.0);
-    color_ += color_gain_per_s * dt * (1.0 - color_ / 100.0);
-  } else if (process_ == ProcessState::ROLLING) {
-    double target_temp_c = 70.0;
-    double cool_k = 0.05;
-    double moisture_loss_k = 0.0015;
-    double aroma_gain_per_s = 0.6;
-    double color_gain_per_s = 0.3;
+    const double step = std::min(remaining_dt, remaining_stage);
+    stage_elapsed_seconds_ += step;
+    total_elapsed_seconds_ += step;
+    remaining_dt -= step;
 
-    if (model_ == ModelType::GENTLE) {
-      cool_k = 0.04;
-      moisture_loss_k = 0.0010;
-      aroma_gain_per_s = 0.4;
-    } else if (model_ == ModelType::AGGRESSIVE) {
-      cool_k = 0.07;
-      moisture_loss_k = 0.0022;
-      aroma_gain_per_s = 0.9;
+    /*
+      状態更新は「工程ごとに連続時間の微小更新」を行います。
+      - STEAMING: 緩和 + 微加湿 + 飽和増加
+      - ROLLING: 冷却緩和 + 脱水 + 飽和増加
+      - DRYING: 指数乾燥 + 過熱時の香気劣化
+    */
+    if (process_ == ProcessState::STEAMING) {
+      const double target_temp_c = 95.0;
+      const double heat_k = 0.08 * k;
+      const double moisture_gain_per_s = 0.0008 * k;
+      const double aroma_gain_per_s = 1.0 * k;
+      const double color_gain_per_s = 0.2 * k;
+
+      temperature_c_ += (target_temp_c - temperature_c_) * heat_k * step;
+      moisture_ += moisture_gain_per_s * step;
+      aroma_ += aroma_gain_per_s * step * (1.0 - aroma_ / 100.0);
+      color_ += color_gain_per_s * step * (1.0 - color_ / 100.0);
+    } else if (process_ == ProcessState::ROLLING) {
+      const double target_temp_c = 70.0;
+      const double cool_k = 0.05 * k;
+      const double moisture_loss_k = 0.0015 * k;
+      const double aroma_gain_per_s = 0.6 * k;
+      const double color_gain_per_s = 0.3 * k;
+
+      temperature_c_ += (target_temp_c - temperature_c_) * cool_k * step;
+      moisture_ -= moisture_loss_k * step * (0.4 + 0.6 * moisture_);
+      aroma_ += aroma_gain_per_s * step * (1.0 - aroma_ / 100.0);
+      color_ += color_gain_per_s * step * (1.0 - color_ / 100.0);
+    } else if (process_ == ProcessState::DRYING) {
+      const double target_temp_c = 60.0;
+      const double temp_k = 0.07 * k;
+      const double dry_k = 0.05 * k;
+      const double aroma_recover_per_s = 0.2 * k;
+      const double overheat_c = 70.0;
+      const double aroma_damage_k = 0.02 * k;
+      const double color_gain_per_s = 0.15 * k;
+
+      temperature_c_ += (target_temp_c - temperature_c_) * temp_k * step;
+      moisture_ *= std::exp(-dry_k * step);
+
+      if (temperature_c_ > overheat_c) {
+        aroma_ -= aroma_damage_k * (temperature_c_ - overheat_c) * step;
+      } else {
+        aroma_ += aroma_recover_per_s * step * (1.0 - aroma_ / 100.0);
+      }
+
+      color_ += color_gain_per_s * step * (1.0 - color_ / 100.0);
     }
 
-    temperature_c_ += (target_temp_c - temperature_c_) * cool_k * dt;
-    moisture_ -= moisture_loss_k * dt * (0.4 + 0.6 * moisture_);
-    aroma_ += aroma_gain_per_s * dt * (1.0 - aroma_ / 100.0);
-    color_ += color_gain_per_s * dt * (1.0 - color_ / 100.0);
-  } else if (process_ == ProcessState::DRYING) {
-    double target_temp_c = 60.0;
-    double temp_k = 0.07;
-    double dry_k = 0.05;
-    double aroma_recover_per_s = 0.2;
-    double overheat_c = 70.0;
-    double aroma_damage_k = 0.02;
-    double color_gain_per_s = 0.15;
-
-    if (model_ == ModelType::GENTLE) {
-      temp_k = 0.06;
-      dry_k = 0.035;
-      aroma_damage_k = 0.015;
-    } else if (model_ == ModelType::AGGRESSIVE) {
-      temp_k = 0.09;
-      dry_k = 0.07;
-      aroma_damage_k = 0.03;
-    }
-
-    temperature_c_ += (target_temp_c - temperature_c_) * temp_k * dt;
-    moisture_ *= std::exp(-dry_k * dt);
-
-    if (temperature_c_ > overheat_c) {
-      aroma_ -= aroma_damage_k * (temperature_c_ - overheat_c) * dt;
-    } else {
-      aroma_ += aroma_recover_per_s * dt * (1.0 - aroma_ / 100.0);
-    }
-
-    color_ += color_gain_per_s * dt * (1.0 - color_ / 100.0);
+    normalize();
+    advance_stage_if_needed();
   }
-
-  normalize();
-  advance_stage_if_needed();
 
   if (process_ == ProcessState::FINISHED && quality_score_final_ == 0.0) {
     quality_score_final_ = quality_score();

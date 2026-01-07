@@ -11,35 +11,33 @@ ModelParams make_model(ModelType type) {
   */
   ModelParams p;
 
-  if (type == ModelType::GENTLE) {
-    p.steaming.heat_k = 0.05;
-    p.steaming.moisture_gain_per_s = 0.0006;
-    p.steaming.aroma_gain_per_s = 0.7;
-
-    p.rolling.cool_k = 0.04;
-    p.rolling.moisture_loss_k = 0.0010;
-    p.rolling.aroma_gain_per_s = 0.4;
-
-    p.drying.temp_k = 0.06;
-    p.drying.dry_k = 0.035;
-    p.drying.aroma_damage_k = 0.015;
+  if (type == ModelType::DEFAULT) {
     return p;
   }
 
-  if (type == ModelType::AGGRESSIVE) {
-    p.steaming.heat_k = 0.11;
-    p.steaming.moisture_gain_per_s = 0.0011;
-    p.steaming.aroma_gain_per_s = 1.4;
+  /*
+    DEFAULT を基準に、モデルごとに倍率で挙動を変えます。
+    これにより「一部係数だけがDEFAULTのまま」という不整合を避けます。
+  */
+  const double k =
+      (type == ModelType::GENTLE) ? 0.75 :
+      (type == ModelType::AGGRESSIVE) ? 1.25 : 1.0;
 
-    p.rolling.cool_k = 0.07;
-    p.rolling.moisture_loss_k = 0.0022;
-    p.rolling.aroma_gain_per_s = 0.9;
+  p.steaming.heat_k *= k;
+  p.steaming.moisture_gain_per_s *= k;
+  p.steaming.aroma_gain_per_s *= k;
+  p.steaming.color_gain_per_s *= k;
 
-    p.drying.temp_k = 0.09;
-    p.drying.dry_k = 0.07;
-    p.drying.aroma_damage_k = 0.03;
-    return p;
-  }
+  p.rolling.cool_k *= k;
+  p.rolling.moisture_loss_k *= k;
+  p.rolling.aroma_gain_per_s *= k;
+  p.rolling.color_gain_per_s *= k;
+
+  p.drying.temp_k *= k;
+  p.drying.dry_k *= k;
+  p.drying.aroma_recover_per_s *= k;
+  p.drying.aroma_damage_k *= k;
+  p.drying.color_gain_per_s *= k;
 
   return p;
 }
