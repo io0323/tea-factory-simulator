@@ -95,8 +95,3 @@ endif()
 enable_testing()
 add_subdirectory(tests ${CMAKE_BINARY_DIR}/tea_factory_tests_bin)
 
-
-
-enable_testing()
-
-add_subdirectory(tests)
