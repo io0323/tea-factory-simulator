@@ -137,14 +137,14 @@ ImVec4 quality_color(const std::string& status) {
 }
 
 /* 工程状態に応じた色を返します。 */
-ImVec4 process_color(tea_gui::ProcessState state) {
-  if (state == tea_gui::ProcessState::STEAMING) {
+ImVec4 process_color(tea::ProcessState state) {
+  if (state == tea::ProcessState::STEAMING) {
     return ImVec4(0.35F, 0.70F, 0.95F, 1.00F);
   }
-  if (state == tea_gui::ProcessState::ROLLING) {
+  if (state == tea::ProcessState::ROLLING) {
     return ImVec4(0.75F, 0.55F, 0.95F, 1.00F);
   }
-  if (state == tea_gui::ProcessState::DRYING) {
+  if (state == tea::ProcessState::DRYING) {
     return ImVec4(0.95F, 0.55F, 0.20F, 1.00F);
   }
   return ImVec4(0.60F, 0.60F, 0.65F, 1.00F);
@@ -524,23 +524,24 @@ int main() {
       */
       int model_idx = 0;
       {
-        const tea_gui::ModelType m = simulator.model();
-        if (m == tea_gui::ModelType::GENTLE) {
+        const tea::ModelType m = simulator.model();
+        if (m == tea::ModelType::GENTLE) {
           model_idx = 1;
-        } else if (m == tea_gui::ModelType::AGGRESSIVE) {
+        } else if (m == tea::ModelType::AGGRESSIVE) {
           model_idx = 2;
         }
       }
-    }
-    const char* model_items[] = {"default", "gentle", "aggressive"};
-    ImGui::TextUnformatted("Model");
-    ImGui::SameLine(140.0F);
-    if (ImGui::Combo("##model", &model_idx, model_items, 3)) {
-      if (!simulator.is_running()) {
-        const tea::ModelType next = // 変更
-            (model_idx == 1) ? tea::ModelType::GENTLE :
-            (model_idx == 2) ? tea::ModelType::AGGRESSIVE :
-                               tea::ModelType::DEFAULT; // 変更
+      const char* model_items[] = {"default", "gentle", "aggressive"};
+
+      ImGui::BeginDisabled(simulator.is_running());
+      ImGui::TextUnformatted("Model");
+      ImGui::SameLine(label_width);
+      ImGui::SetNextItemWidth(-1.0F);
+      if (ImGui::Combo("##model", &model_idx, model_items, 3)) {
+        const tea::ModelType next =
+            (model_idx == 1) ? tea::ModelType::GENTLE
+            : (model_idx == 2) ? tea::ModelType::AGGRESSIVE
+                               : tea::ModelType::DEFAULT;
         simulator.set_model(next);
       }
       ImGui::EndDisabled();
