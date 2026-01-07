@@ -1,6 +1,9 @@
 #pragma once
 
+#include <vector>
+
 #include "TeaBatch.h"
+#include "domain/Model.h"
 
 namespace tea_gui {
 
@@ -14,10 +17,10 @@ class Simulator final {
   Simulator();
 
   /* モデル（係数セット）を設定します（停止状態で適用します）。 */
-  void set_model(ModelType type);
+  void set_model(tea::ModelType type);
 
   /* 現在モデルを返します。 */
-  ModelType model() const;
+  tea::ModelType model() const;
 
   /* 実行を開始します。 */
   void start();
@@ -37,10 +40,20 @@ class Simulator final {
   /* TeaBatch を参照します（UI 用）。 */
   const TeaBatch& batch() const;
 
+  /* バッチ数を停止状態で変更します（内部状態はリセットされます）。 */
+  void set_batch_count(int count);
+
+  /* バッチ数を返します。 */
+  int batch_count() const;
+
+  /* 指定バッチを参照します（UI 用）。 */
+  const TeaBatch& batch_at(int index) const;
+
  private:
   bool running_ = false;
-  ModelType model_ = ModelType::DEFAULT;
-  TeaBatch batch_;
+  tea::ModelType model_ = tea::ModelType::DEFAULT;
+  int batch_count_ = 1;
+  std::vector<TeaBatch> batches_;
 };
 
 } /* namespace tea_gui */

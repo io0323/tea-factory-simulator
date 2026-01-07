@@ -4,6 +4,7 @@ imgui.ini
 tea_factory_cli.csv
 out.csv
 tea_factory_gui.csv
+tea_factory_cli_batch_*.csv
 
 
 

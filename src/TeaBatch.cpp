@@ -1,197 +1,210 @@
+/*
+ * @file TeaBatch.cpp
+ * @brief お茶のバッチ処理と状態管理
+ *
+ * このファイルは、お茶の製造プロセスにおける単一のバッチの状態を管理する
+ * TeaBatchクラスの実装を含んでいます。各工程（蒸し、揉捻、乾燥）での
+ * お茶の状態変化（水分、温度、香気、色）をシミュレートし、
+ * 品質スコアとステータスを計算します。
+ */
+
 #include "TeaBatch.h"
 
-#include <algorithm>
-#include <cmath>
+#include <algorithm> // For std::clamp, std::max
+#include <cmath>     // For std::exp, std::floor
+#include <string>    // For std::string (used in quality_status)
+
+#include "process/SteamingProcess.h" // For SteamingProcess
+#include "process/RollingProcess.h"  // For RollingProcess
+#include "process/DryingProcess.h"   // For DryingProcess
 
 namespace tea_gui {
 
-namespace {
-
 /*
- * @brief モデル種別に応じた係数倍率を返します。
+ * @brief モデルタイプを表示用の文字列に変換します。
  *
- * GUI版の工程ロジックは読みやすさ重視で係数を直書きしますが、モデル差分は
- * 「一部係数だけがDEFAULTのまま」という不整合が出やすいので倍率で統一します。
- *
- * @param type モデル種別
- * @return 係数倍率（DEFAULT=1）
+ * @param type 変換するModelType
+ * @return モデル名を表す文字列
  */
-double model_scale(ModelType type) {
-  if (type == ModelType::GENTLE) {
-    return 0.75;
-  }
-  if (type == ModelType::AGGRESSIVE) {
-    return 1.25;
-  }
-  return 1.0;
-}
-
-} /* namespace */
-
-/* 表示用のモデル名を返します。 */
-const char* to_string(ModelType type) {
+const char* to_string(tea::ModelType type) {
   switch (type) {
-    case ModelType::DEFAULT:
+    case tea::ModelType::DEFAULT:
       return "default";
-    case ModelType::GENTLE:
+    case tea::ModelType::GENTLE:
       return "gentle";
-    case ModelType::AGGRESSIVE:
+    case tea::ModelType::AGGRESSIVE:
       return "aggressive";
   }
   return "unknown";
 }
 
-/* 工程名を表示用文字列に変換します。 */
-const char* to_string(ProcessState state) {
+/*
+ * @brief 工程名を表示用文字列に変換します。
+ *
+ * @param state 変換するProcessState
+ * @return 工程名を表す文字列
+ */
+const char* to_string(tea::ProcessState state) {
   switch (state) {
-    case ProcessState::STEAMING:
+    case tea::ProcessState::STEAMING:
       return "STEAMING";
-    case ProcessState::ROLLING:
+    case tea::ProcessState::ROLLING:
       return "ROLLING";
-    case ProcessState::DRYING:
+    case tea::ProcessState::DRYING:
       return "DRYING";
-    case ProcessState::FINISHED:
+    case tea::ProcessState::FINISHED:
       return "FINISHED";
   }
   return "UNKNOWN";
 }
 
-/* 既定の初期状態で構築します。 */
+/*
+ * @brief TeaBatchの既定コンストラクタです。
+ *
+ * 初期状態にリセットして構築します。
+ */
 TeaBatch::TeaBatch() {
+  set_model(model_); // set_modelでcurrent_process_handler_が初期化される
   reset();
 }
 
-/* モデル（係数セット）を設定します。 */
-void TeaBatch::set_model(ModelType type) {
+/*
+ * @brief シミュレーションモデル（係数セット）を設定します。
+ *
+ * @param type 設定するモデルのタイプ
+ */
+void TeaBatch::set_model(tea::ModelType type) {
   model_ = type;
+  model_params_ = tea::make_model(model_);
+
+  // プロセスハンドラを新しいモデルパラメータで初期化
+  if (current_process_handler_ == nullptr || current_process_handler_->state() == tea::ProcessState::STEAMING) {
+    current_process_handler_ = std::make_unique<tea::SteamingProcess>(model_params_.steaming);
+  } else if (current_process_handler_->state() == tea::ProcessState::ROLLING) {
+    current_process_handler_ = std::make_unique<tea::RollingProcess>(model_params_.rolling);
+  } else if (current_process_handler_->state() == tea::ProcessState::DRYING) {
+    current_process_handler_ = std::make_unique<tea::DryingProcess>(model_params_.drying);
+  } else {
+    // FINISHED状態の場合など、現在のプロセスを維持
+  }
 }
 
-/* 初期状態へ戻します。 */
+/*
+ * @brief バッチを初期状態へリセットします。
+ *
+ * 工程、経過時間、お茶の状態量（水分、温度、香気、色）を初期値に戻し、
+ * 品質スコアをリセットします。
+ */
 void TeaBatch::reset() {
-  process_ = ProcessState::STEAMING;
   stage_elapsed_seconds_ = 0.0;
   total_elapsed_seconds_ = 0.0;
 
-  moisture_ = 0.75;
-  temperature_c_ = 25.0;
-  aroma_ = 10.0;
-  color_ = 10.0;
+  leaf_ = tea::TeaLeaf(); // TeaLeafを初期化
 
   quality_score_final_ = 0.0;
   normalize();
+  
+  // プロセスをSTEAMINGにリセット
+  current_process_handler_ = std::make_unique<tea::SteamingProcess>(model_params_.steaming);
 }
 
-/* deltaTime（秒）だけ状態を進めます。 */
+/*
+ * @brief deltaTime（秒）だけバッチの状態を進めます。
+ *
+ * 現在の工程に基づいてお茶の状態量（水分、温度、香気、色）を更新し、
+ * 必要に応じて次の工程へ移行します。
+ *
+ * @param delta_seconds 更新する時間間隔（秒）
+ */
 void TeaBatch::update(double delta_seconds) {
-  if (process_ == ProcessState::FINISHED) {
+  if (current_process_handler_ == nullptr || current_process_handler_->state() == tea::ProcessState::FINISHED) {
     return;
   }
 
-  /*
-    1フレームで工程残り時間を超える dt が来ることがあります。
-    その場合、超過分は次工程へ繰り越さないと工程境界の挙動が不連続になります。
-  */
-  double remaining_dt = std::max(0.0, delta_seconds);
-  const double k = model_scale(model_);
+  const double dt = std::max(0.0, delta_seconds);
+  stage_elapsed_seconds_ += dt;
+  total_elapsed_seconds_ += dt;
 
-  while (remaining_dt > 0.0 && process_ != ProcessState::FINISHED) {
-    const double remaining_stage = stage_remaining_seconds();
-    if (remaining_stage <= 0.0) {
-      advance_stage_if_needed();
-      continue;
-    }
+  current_process_handler_->apply_step(leaf_, static_cast<int>(dt)); // TeaLeafを渡す
 
-    const double step = std::min(remaining_dt, remaining_stage);
-    stage_elapsed_seconds_ += step;
-    total_elapsed_seconds_ += step;
-    remaining_dt -= step;
+  normalize();
+  advance_stage_if_needed();
 
-    /*
-      状態更新は「工程ごとに連続時間の微小更新」を行います。
-      - STEAMING: 緩和 + 微加湿 + 飽和増加
-      - ROLLING: 冷却緩和 + 脱水 + 飽和増加
-      - DRYING: 指数乾燥 + 過熱時の香気劣化
-    */
-    if (process_ == ProcessState::STEAMING) {
-      const double target_temp_c = 95.0;
-      const double heat_k = 0.08 * k;
-      const double moisture_gain_per_s = 0.0008 * k;
-      const double aroma_gain_per_s = 1.0 * k;
-      const double color_gain_per_s = 0.2 * k;
-
-      temperature_c_ += (target_temp_c - temperature_c_) * heat_k * step;
-      moisture_ += moisture_gain_per_s * step;
-      aroma_ += aroma_gain_per_s * step * (1.0 - aroma_ / 100.0);
-      color_ += color_gain_per_s * step * (1.0 - color_ / 100.0);
-    } else if (process_ == ProcessState::ROLLING) {
-      const double target_temp_c = 70.0;
-      const double cool_k = 0.05 * k;
-      const double moisture_loss_k = 0.0015 * k;
-      const double aroma_gain_per_s = 0.6 * k;
-      const double color_gain_per_s = 0.3 * k;
-
-      temperature_c_ += (target_temp_c - temperature_c_) * cool_k * step;
-      moisture_ -= moisture_loss_k * step * (0.4 + 0.6 * moisture_);
-      aroma_ += aroma_gain_per_s * step * (1.0 - aroma_ / 100.0);
-      color_ += color_gain_per_s * step * (1.0 - color_ / 100.0);
-    } else if (process_ == ProcessState::DRYING) {
-      const double target_temp_c = 60.0;
-      const double temp_k = 0.07 * k;
-      const double dry_k = 0.05 * k;
-      const double aroma_recover_per_s = 0.2 * k;
-      const double overheat_c = 70.0;
-      const double aroma_damage_k = 0.02 * k;
-      const double color_gain_per_s = 0.15 * k;
-
-      temperature_c_ += (target_temp_c - temperature_c_) * temp_k * step;
-      moisture_ *= std::exp(-dry_k * step);
-
-      if (temperature_c_ > overheat_c) {
-        aroma_ -= aroma_damage_k * (temperature_c_ - overheat_c) * step;
-      } else {
-        aroma_ += aroma_recover_per_s * step * (1.0 - aroma_ / 100.0);
-      }
-
-      color_ += color_gain_per_s * step * (1.0 - color_ / 100.0);
-    }
-
-    normalize();
-    advance_stage_if_needed();
-  }
-
-  if (process_ == ProcessState::FINISHED && quality_score_final_ == 0.0) {
+  if (current_process_handler_->state() == tea::ProcessState::FINISHED && quality_score_final_ == 0.0) {
     quality_score_final_ = quality_score();
   }
 }
 
-/* 現在工程を返します。 */
-ProcessState TeaBatch::process() const {
-  return process_;
+/*
+ * @brief 現在の工程を返します。
+ *
+ * @return 現在のProcessState
+ */
+tea::ProcessState TeaBatch::process() const {
+  if (current_process_handler_ == nullptr) {
+    return tea::ProcessState::FINISHED; // エラーハンドリングまたはデフォルト値
+  }
+  return current_process_handler_->state();
 }
 
-/* 経過時間（秒）を返します。 */
+/*
+ * @brief シミュレーションの経過時間（秒）を返します。
+ *
+ * @return 経過時間（秒）
+ */
 int TeaBatch::elapsed_seconds() const {
   return static_cast<int>(std::floor(total_elapsed_seconds_));
 }
 
-/* 各状態量を返します。 */
+/*
+ * @brief 現在の水分量を返します。
+ *
+ * @return 水分量 (0.0 - 1.0)
+ */
 double TeaBatch::moisture() const {
-  return moisture_;
+  return leaf_.moisture;
 }
 
+/*
+ * @brief 現在の温度（摂氏）を返します。
+ *
+ * @return 温度 (摂氏)
+ */
 double TeaBatch::temperature_c() const {
-  return temperature_c_;
+  return leaf_.temperature_c;
 }
 
+/*
+ * @brief 現在の香気を返します。
+ *
+ * @return 香気 (0.0 - 100.0)
+ */
 double TeaBatch::aroma() const {
-  return aroma_;
+  return leaf_.aroma;
 }
 
+/*
+ * @brief 現在の色を返します。
+ *
+ * @return 色 (0.0 - 100.0)
+ */
 double TeaBatch::color() const {
-  return color_;
+  return leaf_.color;
 }
 
-/* FINISHED のときに品質スコアを返します（それ以外は現在値で算出）。 */
+/*
+ * @brief 品質スコア（0-100）を要件式で算出します。
+ *
+ * バッチが終了している場合は最終品質スコアを返し、
+ * それ以外の場合は現在の状態からスコアを算出します。
+ *
+ * 要件式:
+ *   qualityScore = aroma * 0.4
+ *                + color * 0.4
+ *                + (1.0 - moisture) * 100 * 0.2
+ *
+ * @return 算出された品質スコア
+ */
 double TeaBatch::quality_score() const {
   /*
     要件式:
@@ -200,14 +213,21 @@ double TeaBatch::quality_score() const {
                    + (1.0 - moisture) * 100 * 0.2
   */
   const double score =
-      aroma_ * 0.4 + color_ * 0.4 + (1.0 - moisture_) * 100.0 * 0.2;
+      leaf_.aroma * 0.4 + leaf_.color * 0.4 + (1.0 - leaf_.moisture) * 100.0 * 0.2;
   return std::clamp(score, 0.0, 100.0);
 }
 
-/* 品質ステータス（GOOD/OK/BAD）を返します。 */
+/*
+ * @brief 品質ステータス（GOOD/OK/BAD）を返します。
+ *
+ * 品質スコアに基づいて、GOOD (80以上), OK (60以上), BAD (それ未満) の
+ * いずれかのステータスを返します。
+ *
+ * @return 品質ステータスを表す文字列
+ */
 std::string TeaBatch::quality_status() const {
   const double score =
-      (process_ == ProcessState::FINISHED) ? quality_score_final_
+      (current_process_handler_ == nullptr || current_process_handler_->state() == tea::ProcessState::FINISHED) ? quality_score_final_
                                            : quality_score();
   if (score >= 80.0) {
     return "GOOD";
@@ -218,14 +238,24 @@ std::string TeaBatch::quality_status() const {
   return "BAD";
 }
 
-/* 値域へクランプします。 */
+/*
+ * @brief お茶の状態量を有効な値域へクランプします。
+ *
+ * 水分、香気、色の値がそれぞれの最小値・最大値の範囲に収まるように調整します。
+ */
 void TeaBatch::normalize() {
-  moisture_ = std::clamp(moisture_, 0.0, 1.0);
-  aroma_ = std::clamp(aroma_, 0.0, 100.0);
-  color_ = std::clamp(color_, 0.0, 100.0);
+  leaf_.moisture = std::clamp(leaf_.moisture, 0.0, 1.0);
+  leaf_.aroma = std::clamp(leaf_.aroma, 0.0, 100.0);
+  leaf_.color = std::clamp(leaf_.color, 0.0, 100.0);
 }
 
-/* 現在工程の残り時間（秒）を返します。 */
+/*
+ * @brief 現在工程の残り時間（秒）を返します。
+ *
+ * 各工程の固定時間に基づいて、現在の工程の残り時間を計算します。
+ *
+ * @return 現在工程の残り時間（秒）
+ */
 double TeaBatch::stage_remaining_seconds() const {
   /*
     工程時間は固定（例示）とし、シンプルにします。
@@ -235,21 +265,26 @@ double TeaBatch::stage_remaining_seconds() const {
   const double roll_s = 30.0;
   const double dry_s = 60.0;
 
-  if (process_ == ProcessState::STEAMING) {
+  if (current_process_handler_ == nullptr || current_process_handler_->state() == tea::ProcessState::STEAMING) {
     return std::max(0.0, steam_s - stage_elapsed_seconds_);
   }
-  if (process_ == ProcessState::ROLLING) {
+  if (current_process_handler_->state() == tea::ProcessState::ROLLING) {
     return std::max(0.0, roll_s - stage_elapsed_seconds_);
   }
-  if (process_ == ProcessState::DRYING) {
+  if (current_process_handler_->state() == tea::ProcessState::DRYING) {
     return std::max(0.0, dry_s - stage_elapsed_seconds_);
   }
   return 0.0;
 }
 
-/* 工程の閾値で次工程へ進めます。 */
+/*
+ * @brief 工程の閾値に達した場合、次の工程へ進めます。
+ *
+ * 現在の工程の残り時間が0以下になった場合、次の工程へ移行します。
+ * 最終工程の場合はFINISHED状態へ移行します。
+ */
 void TeaBatch::advance_stage_if_needed() {
-  if (process_ == ProcessState::FINISHED) {
+  if (current_process_handler_ == nullptr || current_process_handler_->state() == tea::ProcessState::FINISHED) {
     return;
   }
 
@@ -259,15 +294,13 @@ void TeaBatch::advance_stage_if_needed() {
 
   stage_elapsed_seconds_ = 0.0;
 
-  if (process_ == ProcessState::STEAMING) {
-    process_ = ProcessState::ROLLING;
-  } else if (process_ == ProcessState::ROLLING) {
-    process_ = ProcessState::DRYING;
-  } else if (process_ == ProcessState::DRYING) {
-    process_ = ProcessState::FINISHED;
+  if (current_process_handler_->state() == tea::ProcessState::STEAMING) {
+    current_process_handler_ = std::make_unique<tea::RollingProcess>(model_params_.rolling);
+  } else if (current_process_handler_->state() == tea::ProcessState::ROLLING) {
+    current_process_handler_ = std::make_unique<tea::DryingProcess>(model_params_.drying);
+  } else if (current_process_handler_->state() == tea::ProcessState::DRYING) {
+    current_process_handler_.reset(); // FINISHED状態
   }
 }
 
 } /* namespace tea_gui */
-
-

@@ -17,6 +17,8 @@ struct Args final {
 
   std::string model = "default";
 
+  int batches = 1;
+
   bool csv_enabled = true;
   std::string csv_path = "tea_factory_cli.csv";
 

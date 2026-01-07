@@ -1,8 +1,25 @@
+/*
+ * @file Model.cpp
+ * @brief シミュレーションモデルのパラメータとユーティリティ関数を提供
+ *
+ * このファイルは、異なるモデルタイプ（DEFAULT, GENTLE, AGGRESSIVE）に
+ * 対応するシミュレーションパラメータ（蒸し、揉捻、乾燥工程の係数）を
+ * 生成する機能と、モデルタイプを表示文字列に変換する機能を提供します。
+ */
+
 #include "domain/Model.h"
 
 namespace tea {
 
-/* モデル種別から工程別パラメータを構築します。 */
+/*
+ * @brief モデル種別から工程別パラメータを構築します。
+ *
+ * 各モデルタイプ（DEFAULT, GENTLE, AGGRESSIVE）に応じた
+ * シミュレーションパラメータ（熱、水分、香気などの係数）を設定します。
+ *
+ * @param type 構築するモデルのタイプ
+ * @return 構築されたModelParams構造体
+ */
 ModelParams make_model(ModelType type) {
   /*
     係数は「挙動の違いが分かりやすい」ことを優先し、過度に複雑化しません。
@@ -42,7 +59,12 @@ ModelParams make_model(ModelType type) {
   return p;
 }
 
-/* 表示用のモデル名を返します。 */
+/*
+ * @brief モデルタイプを表示用の文字列に変換します。
+ *
+ * @param type 変換するModelType
+ * @return モデル名を表す文字列
+ */
 const char* to_string(ModelType type) {
   switch (type) {
     case ModelType::DEFAULT:
@@ -56,5 +78,3 @@ const char* to_string(ModelType type) {
 }
 
 } /* namespace tea */
-
-

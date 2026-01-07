@@ -1,12 +1,30 @@
+/*
+ * @file Args.cpp
+ * @brief CLI引数のパースとヘルプテキストの管理
+ *
+ * このファイルは、コマンドライン引数を解析し、シミュレーション設定に
+ * 必要なパラメータを抽出する機能を提供します。また、CLIのヘルプテキストも
+ * 定義されています。
+ */
+
 #include "cli/Args.h"
 
-#include <cstdlib>
+#include <cstdlib> // For std::strtol
+#include <string>  // For std::string
+#include <optional> // For std::optional
 
 namespace tea_cli {
 
 namespace {
 
-/* 文字列を正の整数へ変換します（失敗時はnullopt）。 */
+/*
+ * @brief 文字列を正の整数へ変換します。
+ *
+ * 変換に失敗した場合、または結果が正の整数でない場合はstd::nulloptを返します。
+ *
+ * @param s 変換する文字列
+ * @return 変換された正の整数、またはstd::nullopt
+ */
 std::optional<int> parse_positive_int(const char* s) {
   if (s == nullptr || *s == '\0') {
     return std::nullopt;
@@ -16,7 +34,7 @@ std::optional<int> parse_positive_int(const char* s) {
   if (end == s || *end != '\0') {
     return std::nullopt;
   }
-  if (v <= 0 || v > 24 * 60 * 60) {
+  if (v <= 0 || v > 24 * 60 * 60) { // 1日（秒）を最大値とする
     return std::nullopt;
   }
   return static_cast<int>(v);
@@ -24,7 +42,16 @@ std::optional<int> parse_positive_int(const char* s) {
 
 } /* namespace */
 
-/* 引数をパースします。失敗時は Args::error に理由を設定します。 */
+/*
+ * @brief コマンドライン引数をパースします。
+ *
+ * 引数を解析し、Args構造体に格納します。パースに失敗した場合は、
+ * Args::errorにエラー理由を設定します。
+ *
+ * @param argc 引数の数
+ * @param argv 引数の文字列配列
+ * @return パース結果を含むArgs構造体
+ */
 Args parse_args(int argc, char** argv) {
   Args args;
 
@@ -42,7 +69,8 @@ Args parse_args(int argc, char** argv) {
     }
 
     if (a == "--dt" || a == "--steaming" || a == "--rolling" ||
-        a == "--drying" || a == "--csv" || a == "--model") {
+        a == "--drying" || a == "--csv" || a == "--model" ||
+        a == "--batches") {
       if (i + 1 >= argc) {
         args.error = "Missing value for " + a;
         return args;
@@ -65,6 +93,16 @@ Args parse_args(int argc, char** argv) {
           args.error = "Invalid model: " + args.model;
           return args;
         }
+        continue;
+      }
+
+      if (a == "--batches") {
+        const auto parsed = parse_positive_int(v);
+        if (!parsed.has_value() || *parsed > 128) {
+          args.error = "Invalid batches: " + std::string(v ? v : "");
+          return args;
+        }
+        args.batches = *parsed;
         continue;
       }
 
@@ -113,7 +151,13 @@ Args parse_args(int argc, char** argv) {
   return args;
 }
 
-/* ヘルプ文字列を返します。 */
+/*
+ * @brief CLIのヘルプテキストを返します。
+ *
+ * コマンドラインオプションとその説明を含む文字列を返します。
+ *
+ * @return ヘルプテキスト
+ */
 const char* help_text() {
   return
       "TeaFactory Simulator (CLI)\n"
@@ -127,11 +171,10 @@ const char* help_text() {
       "  --rolling <sec>   Rolling duration (default: 30)\n"
       "  --drying <sec>    Drying duration (default: 60)\n"
       "  --model <name>    Model: default|gentle|aggressive\n"
+      "  --batches <n>     Batch count (default: 1, max: 128)\n"
       "  --csv <path>      CSV output path (default: tea_factory_cli.csv)\n"
       "  --no-csv          Disable CSV output\n"
       "  -h, --help        Show help\n";
 }
 
 } /* namespace tea_cli */
-
-
