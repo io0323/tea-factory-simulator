@@ -93,7 +93,7 @@ if(TEAFACTORY_BUILD_GUI)
 endif()
 
 enable_testing()
-add_subdirectory(tests)
+add_subdirectory(tests ${CMAKE_BINARY_DIR}/tea_factory_tests_bin)
 
 
 
