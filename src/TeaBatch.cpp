@@ -11,7 +11,7 @@
 #include "TeaBatch.h"
 
 #include <algorithm> // For std::clamp, std::max
-#include <cmath>     // For std::exp, std::floor
+#include <cmath>     // For std::floor
 #include <string>    // For std::string (used in quality_status)
 
 #include "process/SteamingProcess.h" // For SteamingProcess
@@ -20,43 +20,16 @@
 
 namespace tea_gui {
 
-/*
- * @brief モデルタイプを表示用の文字列に変換します。
- *
- * @param type 変換するModelType
- * @return モデル名を表す文字列
- */
-const char* to_string(tea::ModelType type) {
-  switch (type) {
-    case tea::ModelType::DEFAULT:
-      return "default";
-    case tea::ModelType::GENTLE:
-      return "gentle";
-    case tea::ModelType::AGGRESSIVE:
-      return "aggressive";
-  }
-  return "unknown";
-}
+namespace {
 
 /*
- * @brief 工程名を表示用文字列に変換します。
- *
- * @param state 変換するProcessState
- * @return 工程名を表す文字列
+ * @brief GUI版で用いる既定の工程時間（秒）です。
  */
-const char* to_string(tea::ProcessState state) {
-  switch (state) {
-    case tea::ProcessState::STEAMING:
-      return "STEAMING";
-    case tea::ProcessState::ROLLING:
-      return "ROLLING";
-    case tea::ProcessState::DRYING:
-      return "DRYING";
-    case tea::ProcessState::FINISHED:
-      return "FINISHED";
-  }
-  return "UNKNOWN";
-}
+constexpr int kSteamingSeconds = 30;
+constexpr int kRollingSeconds = 30;
+constexpr int kDryingSeconds = 60;
+
+} /* namespace */
 
 /*
  * @brief TeaBatchの既定コンストラクタです。
@@ -69,6 +42,25 @@ TeaBatch::TeaBatch() {
 }
 
 /*
+ * @brief 工程の既定所要時間（秒）を返します。
+ *
+ * @param state 工程状態
+ * @return 既定所要時間（秒）
+ */
+int TeaBatch::default_stage_seconds(tea::ProcessState state) {
+  if (state == tea::ProcessState::STEAMING) {
+    return kSteamingSeconds;
+  }
+  if (state == tea::ProcessState::ROLLING) {
+    return kRollingSeconds;
+  }
+  if (state == tea::ProcessState::DRYING) {
+    return kDryingSeconds;
+  }
+  return 0;
+}
+
+/*
  * @brief シミュレーションモデル（係数セット）を設定します。
  *
  * @param type 設定するモデルのタイプ
@@ -77,15 +69,25 @@ void TeaBatch::set_model(tea::ModelType type) {
   model_ = type;
   model_params_ = tea::make_model(model_);
 
-  // プロセスハンドラを新しいモデルパラメータで初期化
-  if (current_process_handler_ == nullptr || current_process_handler_->state() == tea::ProcessState::STEAMING) {
-    current_process_handler_ = std::make_unique<tea::SteamingProcess>(model_params_.steaming);
-  } else if (current_process_handler_->state() == tea::ProcessState::ROLLING) {
-    current_process_handler_ = std::make_unique<tea::RollingProcess>(model_params_.rolling);
-  } else if (current_process_handler_->state() == tea::ProcessState::DRYING) {
-    current_process_handler_ = std::make_unique<tea::DryingProcess>(model_params_.drying);
-  } else {
-    // FINISHED状態の場合など、現在のプロセスを維持
+  /*
+    停止中にモデルが変わるケースを想定し、工程状態は維持したまま
+    パラメータだけ差し替えます。
+    FINISHED ならハンドラが無いので何もしません。
+  */
+  if (current_process_handler_ == nullptr) {
+    return;
+  }
+
+  const tea::ProcessState state = current_process_handler_->state();
+  if (state == tea::ProcessState::STEAMING) {
+    current_process_handler_ =
+        std::make_unique<tea::SteamingProcess>(model_params_.steaming);
+  } else if (state == tea::ProcessState::ROLLING) {
+    current_process_handler_ =
+        std::make_unique<tea::RollingProcess>(model_params_.rolling);
+  } else if (state == tea::ProcessState::DRYING) {
+    current_process_handler_ =
+        std::make_unique<tea::DryingProcess>(model_params_.drying);
   }
 }
 
@@ -96,16 +98,19 @@ void TeaBatch::set_model(tea::ModelType type) {
  * 品質スコアをリセットします。
  */
 void TeaBatch::reset() {
-  stage_elapsed_seconds_ = 0.0;
-  total_elapsed_seconds_ = 0.0;
+  time_accumulator_seconds_ = 0.0;
+  elapsed_seconds_ = 0;
+  stage_remaining_seconds_ = kSteamingSeconds;
 
   leaf_ = tea::TeaLeaf(); // TeaLeafを初期化
 
+  has_quality_score_final_ = false;
   quality_score_final_ = 0.0;
-  normalize();
+  tea::normalize(leaf_);
   
   // プロセスをSTEAMINGにリセット
-  current_process_handler_ = std::make_unique<tea::SteamingProcess>(model_params_.steaming);
+  current_process_handler_ =
+      std::make_unique<tea::SteamingProcess>(model_params_.steaming);
 }
 
 /*
@@ -117,21 +122,68 @@ void TeaBatch::reset() {
  * @param delta_seconds 更新する時間間隔（秒）
  */
 void TeaBatch::update(double delta_seconds) {
-  if (current_process_handler_ == nullptr || current_process_handler_->state() == tea::ProcessState::FINISHED) {
+  if (current_process_handler_ == nullptr) {
     return;
   }
 
-  const double dt = std::max(0.0, delta_seconds);
-  stage_elapsed_seconds_ += dt;
-  total_elapsed_seconds_ += dt;
+  /*
+    GUI版はフレーム単位で dt が渡されるため、小数秒を蓄積して 1 秒単位で
+    工程へ適用します。工程境界を跨ぐ場合は残り時間で分割します。
+  */
+  time_accumulator_seconds_ += std::max(0.0, delta_seconds);
 
-  current_process_handler_->apply_step(leaf_, static_cast<int>(dt)); // TeaLeafを渡す
+  while (time_accumulator_seconds_ >= 1.0) {
+    if (current_process_handler_ == nullptr) {
+      break;
+    }
 
-  normalize();
-  advance_stage_if_needed();
+    if (stage_remaining_seconds_ <= 0) {
+      stage_remaining_seconds_ =
+          default_stage_seconds(current_process_handler_->state());
+    }
 
-  if (current_process_handler_->state() == tea::ProcessState::FINISHED && quality_score_final_ == 0.0) {
-    quality_score_final_ = quality_score();
+    const int available =
+        static_cast<int>(std::floor(time_accumulator_seconds_));
+    if (available <= 0) {
+      break;
+    }
+    const int step = std::min(available, stage_remaining_seconds_);
+
+    current_process_handler_->apply_step(leaf_, step);
+    tea::normalize(leaf_);
+
+    elapsed_seconds_ += step;
+    stage_remaining_seconds_ -= step;
+    time_accumulator_seconds_ -= static_cast<double>(step);
+
+    if (stage_remaining_seconds_ > 0) {
+      continue;
+    }
+
+    const tea::ProcessState state = current_process_handler_->state();
+    if (state == tea::ProcessState::STEAMING) {
+      current_process_handler_ =
+          std::make_unique<tea::RollingProcess>(model_params_.rolling);
+      stage_remaining_seconds_ = kRollingSeconds;
+      continue;
+    }
+    if (state == tea::ProcessState::ROLLING) {
+      current_process_handler_ =
+          std::make_unique<tea::DryingProcess>(model_params_.drying);
+      stage_remaining_seconds_ = kDryingSeconds;
+      continue;
+    }
+    if (state == tea::ProcessState::DRYING) {
+      current_process_handler_.reset();
+      stage_remaining_seconds_ = 0;
+      time_accumulator_seconds_ = 0.0;
+
+      if (!has_quality_score_final_) {
+        quality_score_final_ = quality_score();
+        has_quality_score_final_ = true;
+      }
+      break;
+    }
   }
 }
 
@@ -153,7 +205,7 @@ tea::ProcessState TeaBatch::process() const {
  * @return 経過時間（秒）
  */
 int TeaBatch::elapsed_seconds() const {
-  return static_cast<int>(std::floor(total_elapsed_seconds_));
+  return elapsed_seconds_;
 }
 
 /*
@@ -212,6 +264,9 @@ double TeaBatch::quality_score() const {
                    + color * 0.4
                    + (1.0 - moisture) * 100 * 0.2
   */
+  if (process() == tea::ProcessState::FINISHED && has_quality_score_final_) {
+    return quality_score_final_;
+  }
   const double score =
       leaf_.aroma * 0.4 + leaf_.color * 0.4 + (1.0 - leaf_.moisture) * 100.0 * 0.2;
   return std::clamp(score, 0.0, 100.0);
@@ -227,8 +282,9 @@ double TeaBatch::quality_score() const {
  */
 std::string TeaBatch::quality_status() const {
   const double score =
-      (current_process_handler_ == nullptr || current_process_handler_->state() == tea::ProcessState::FINISHED) ? quality_score_final_
-                                           : quality_score();
+      (process() == tea::ProcessState::FINISHED && has_quality_score_final_)
+          ? quality_score_final_
+          : quality_score();
   if (score >= 80.0) {
     return "GOOD";
   }
@@ -236,71 +292,6 @@ std::string TeaBatch::quality_status() const {
     return "OK";
   }
   return "BAD";
-}
-
-/*
- * @brief お茶の状態量を有効な値域へクランプします。
- *
- * 水分、香気、色の値がそれぞれの最小値・最大値の範囲に収まるように調整します。
- */
-void TeaBatch::normalize() {
-  leaf_.moisture = std::clamp(leaf_.moisture, 0.0, 1.0);
-  leaf_.aroma = std::clamp(leaf_.aroma, 0.0, 100.0);
-  leaf_.color = std::clamp(leaf_.color, 0.0, 100.0);
-}
-
-/*
- * @brief 現在工程の残り時間（秒）を返します。
- *
- * 各工程の固定時間に基づいて、現在の工程の残り時間を計算します。
- *
- * @return 現在工程の残り時間（秒）
- */
-double TeaBatch::stage_remaining_seconds() const {
-  /*
-    工程時間は固定（例示）とし、シンプルにします。
-    STEAMING: 30s, ROLLING: 30s, DRYING: 60s
-  */
-  const double steam_s = 30.0;
-  const double roll_s = 30.0;
-  const double dry_s = 60.0;
-
-  if (current_process_handler_ == nullptr || current_process_handler_->state() == tea::ProcessState::STEAMING) {
-    return std::max(0.0, steam_s - stage_elapsed_seconds_);
-  }
-  if (current_process_handler_->state() == tea::ProcessState::ROLLING) {
-    return std::max(0.0, roll_s - stage_elapsed_seconds_);
-  }
-  if (current_process_handler_->state() == tea::ProcessState::DRYING) {
-    return std::max(0.0, dry_s - stage_elapsed_seconds_);
-  }
-  return 0.0;
-}
-
-/*
- * @brief 工程の閾値に達した場合、次の工程へ進めます。
- *
- * 現在の工程の残り時間が0以下になった場合、次の工程へ移行します。
- * 最終工程の場合はFINISHED状態へ移行します。
- */
-void TeaBatch::advance_stage_if_needed() {
-  if (current_process_handler_ == nullptr || current_process_handler_->state() == tea::ProcessState::FINISHED) {
-    return;
-  }
-
-  if (stage_remaining_seconds() > 0.0) {
-    return;
-  }
-
-  stage_elapsed_seconds_ = 0.0;
-
-  if (current_process_handler_->state() == tea::ProcessState::STEAMING) {
-    current_process_handler_ = std::make_unique<tea::RollingProcess>(model_params_.rolling);
-  } else if (current_process_handler_->state() == tea::ProcessState::ROLLING) {
-    current_process_handler_ = std::make_unique<tea::DryingProcess>(model_params_.drying);
-  } else if (current_process_handler_->state() == tea::ProcessState::DRYING) {
-    current_process_handler_.reset(); // FINISHED状態
-  }
 }
 
 } /* namespace tea_gui */
