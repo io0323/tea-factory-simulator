@@ -318,7 +318,7 @@ int main() {
     */
     if (csv.has_value() && elapsed != last_csv_elapsed) {
       last_csv_elapsed = elapsed;
-      csv->write_row(tea_gui::to_string(batch.process()),
+      csv->write_row(tea::to_string(batch.process()),
                      elapsed,
                      batch.moisture(),
                      batch.temperature_c(),
@@ -361,7 +361,7 @@ int main() {
 
     char process_text[64];
     std::snprintf(process_text, sizeof(process_text), "%s",
-                  tea_gui::to_string(batch.process()));
+                  tea::to_string(batch.process()));
     char elapsed_text[64];
     std::snprintf(elapsed_text, sizeof(elapsed_text), "%d sec", elapsed);
     char batch_text[64];
@@ -490,7 +490,7 @@ int main() {
       ImGui::Spacing();
       ImGui::TextUnformatted("Current Stage");
       ImGui::SameLine();
-      draw_badge(tea_gui::to_string(batch.process()),
+      draw_badge(tea::to_string(batch.process()),
                  process_color(batch.process()));
 
       ImGui::TableSetColumnIndex(1);

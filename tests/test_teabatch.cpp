@@ -81,7 +81,7 @@ bool test_reaches_finished() {
   b.update(30.0);
   b.update(30.0);
   b.update(60.0);
-  return expect(b.process() == tea_gui::ProcessState::FINISHED,
+  return expect(b.process() == tea::ProcessState::FINISHED,
                 "TeaBatch should reach FINISHED after 120s");
 }
 
@@ -93,8 +93,8 @@ bool test_reaches_finished() {
 bool test_model_scaling_effect() {
   tea_gui::TeaBatch gentle;
   tea_gui::TeaBatch aggr;
-  gentle.set_model(tea_gui::ModelType::GENTLE);
-  aggr.set_model(tea_gui::ModelType::AGGRESSIVE);
+  gentle.set_model(tea::ModelType::GENTLE);
+  aggr.set_model(tea::ModelType::AGGRESSIVE);
   gentle.reset();
   aggr.reset();
 
@@ -124,5 +124,6 @@ int main() {
   std::cout << "unit_tests: OK\n";
   return 0;
 }
+
 
 
