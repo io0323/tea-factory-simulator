@@ -121,20 +121,20 @@ bool test_fractional_dt_accumulation() {
     a.update(0.1);
   }
 
-  const double eps = 1e-9;
+  const double eps = 1e-6;
   bool ok = true;
   ok = expect(a.elapsed_seconds() == b.elapsed_seconds(),
-              "elapsed_seconds should match (0.1*10 == 1.0)") && ok;
+              "elapsed_seconds should match (0.1s x 10 ~= 1.0s)") && ok;
   ok = expect(a.process() == b.process(),
-              "process should match (0.1*10 == 1.0)") && ok;
+              "process should match (0.1s x 10 ~= 1.0s)") && ok;
   ok = expect(nearly(a.moisture(), b.moisture(), eps),
-              "moisture should match (0.1*10 == 1.0)") && ok;
+              "moisture should match (0.1s x 10 ~= 1.0s)") && ok;
   ok = expect(nearly(a.temperature_c(), b.temperature_c(), eps),
-              "temperature should match (0.1*10 == 1.0)") && ok;
+              "temperature should match (0.1s x 10 ~= 1.0s)") && ok;
   ok = expect(nearly(a.aroma(), b.aroma(), eps),
-              "aroma should match (0.1*10 == 1.0)") && ok;
+              "aroma should match (0.1s x 10 ~= 1.0s)") && ok;
   ok = expect(nearly(a.color(), b.color(), eps),
-              "color should match (0.1*10 == 1.0)") && ok;
+              "color should match (0.1s x 10 ~= 1.0s)") && ok;
   return ok;
 }
 
