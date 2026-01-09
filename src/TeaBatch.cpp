@@ -29,6 +29,14 @@ constexpr int kSteamingSeconds = 30;
 constexpr int kRollingSeconds = 30;
 constexpr int kDryingSeconds = 60;
 
+/*
+ * @brief 小数dtの蓄積で 1.0 に届かないケースを吸収する許容誤差です。
+ *
+ * 例: 0.1 を10回足した結果が 0.999999999... になるケースでも、
+ * 1秒ステップが発火するようにします。
+ */
+constexpr double kTimeAccumulatorEpsilon = 1e-9;
+
 } /* namespace */
 
 /*
@@ -132,7 +140,7 @@ void TeaBatch::update(double delta_seconds) {
   */
   time_accumulator_seconds_ += std::max(0.0, delta_seconds);
 
-  while (time_accumulator_seconds_ >= 1.0) {
+  while (time_accumulator_seconds_ + kTimeAccumulatorEpsilon >= 1.0) {
     if (current_process_handler_ == nullptr) {
       break;
     }
@@ -143,7 +151,8 @@ void TeaBatch::update(double delta_seconds) {
     }
 
     const int available =
-        static_cast<int>(std::floor(time_accumulator_seconds_));
+        static_cast<int>(std::floor(time_accumulator_seconds_ +
+                                    kTimeAccumulatorEpsilon));
     if (available <= 0) {
       break;
     }
@@ -154,7 +163,8 @@ void TeaBatch::update(double delta_seconds) {
 
     elapsed_seconds_ += step;
     stage_remaining_seconds_ -= step;
-    time_accumulator_seconds_ -= static_cast<double>(step);
+    time_accumulator_seconds_ =
+        std::max(0.0, time_accumulator_seconds_ - static_cast<double>(step));
 
     if (stage_remaining_seconds_ > 0) {
       continue;
