@@ -137,16 +137,6 @@ Args parse_args(int argc, char** argv) {
     args.error = "stage seconds must be > 0";
     return args;
   }
-  if (args.dt_seconds > args.steaming_seconds ||
-      args.dt_seconds > args.rolling_seconds ||
-      args.dt_seconds > args.drying_seconds) {
-    /*
-      dt が工程時間より大きいと、工程が1ステップも進まない可能性があるため
-      ここで弾きます（次タスクで柔軟化してもOK）。
-    */
-    args.error = "dt must be <= each stage seconds";
-    return args;
-  }
 
   return args;
 }
