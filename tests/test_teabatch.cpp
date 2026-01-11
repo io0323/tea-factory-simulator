@@ -106,21 +106,133 @@ bool test_model_scaling_effect() {
 }
 
 /*
- * @brief 小数dtを蓄積して、整数秒になったときだけ進むことを検証します。
+ * @brief dt=0.1 を10回積み上げるのが 1.0 を1回と一致することを検証します。
  *
  * @return 成功なら true
  */
-bool test_fractional_dt_accumulates() {
+bool test_fractional_dt_accumulation() {
+  tea_gui::TeaBatch a;
   tea_gui::TeaBatch b;
+  a.reset();
   b.reset();
-  b.update(0.4);
-  b.update(0.4);
-  b.update(0.4);
+
+  b.update(1.0);
+  for (int i = 0; i < 10; ++i) {
+    a.update(0.1);
+  }
+
+  const double eps = 1e-6;
   bool ok = true;
-  ok = expect(b.elapsed_seconds() == 1,
-              "elapsed_seconds should advance after 1.2s input") && ok;
-  ok = expect(b.process() == tea::ProcessState::STEAMING,
-              "process should remain STEAMING at t=1s") && ok;
+  ok = expect(a.elapsed_seconds() == b.elapsed_seconds(),
+              "elapsed_seconds should match (0.1s x 10 ~= 1.0s)") && ok;
+  ok = expect(a.process() == b.process(),
+              "process should match (0.1s x 10 ~= 1.0s)") && ok;
+  ok = expect(nearly(a.moisture(), b.moisture(), eps),
+              "moisture should match (0.1s x 10 ~= 1.0s)") && ok;
+  ok = expect(nearly(a.temperature_c(), b.temperature_c(), eps),
+              "temperature should match (0.1s x 10 ~= 1.0s)") && ok;
+  ok = expect(nearly(a.aroma(), b.aroma(), eps),
+              "aroma should match (0.1s x 10 ~= 1.0s)") && ok;
+  ok = expect(nearly(a.color(), b.color(), eps),
+              "color should match (0.1s x 10 ~= 1.0s)") && ok;
+  return ok;
+}
+
+/*
+ * @brief 工程境界を複数回跨ぐ dt でも分割適用と一致することを検証します。
+ *
+ * 例: 61秒を1回で与えるのと、30+30+1で与えるのが一致するべきです。
+ *
+ * @return 成功なら true
+ */
+bool test_multiple_stage_boundaries() {
+  tea_gui::TeaBatch a;
+  tea_gui::TeaBatch b;
+  a.reset();
+  b.reset();
+
+  a.update(61.0);
+  b.update(30.0);
+  b.update(30.0);
+  b.update(1.0);
+
+  const double eps = 1e-9;
+  bool ok = true;
+  ok = expect(a.process() == b.process(), "process should match") && ok;
+  ok = expect(a.elapsed_seconds() == b.elapsed_seconds(),
+              "elapsed_seconds should match") && ok;
+  ok = expect(nearly(a.moisture(), b.moisture(), eps), "moisture should match")
+       && ok;
+  ok = expect(nearly(a.temperature_c(), b.temperature_c(), eps),
+              "temperature should match") && ok;
+  ok = expect(nearly(a.aroma(), b.aroma(), eps), "aroma should match") && ok;
+  ok = expect(nearly(a.color(), b.color(), eps), "color should match") && ok;
+  return ok;
+}
+
+/*
+ * @brief 完了後に余分な dt を与えても状態が進まないことを検証します。
+ *
+ * @return 成功なら true
+ */
+bool test_overrun_after_finished() {
+  tea_gui::TeaBatch a;
+  tea_gui::TeaBatch b;
+  a.reset();
+  b.reset();
+
+  a.update(125.0);
+  b.update(120.0);
+  b.update(5.0);
+
+  const double eps = 1e-9;
+  bool ok = true;
+  ok = expect(a.process() == tea::ProcessState::FINISHED,
+              "a should be FINISHED") && ok;
+  ok = expect(b.process() == tea::ProcessState::FINISHED,
+              "b should be FINISHED") && ok;
+  ok = expect(a.elapsed_seconds() == 120, "a elapsed should be 120") && ok;
+  ok = expect(b.elapsed_seconds() == 120, "b elapsed should be 120") && ok;
+  ok = expect(nearly(a.moisture(), b.moisture(), eps), "moisture should match")
+       && ok;
+  ok = expect(nearly(a.temperature_c(), b.temperature_c(), eps),
+              "temperature should match") && ok;
+  ok = expect(nearly(a.aroma(), b.aroma(), eps), "aroma should match") && ok;
+  ok = expect(nearly(a.color(), b.color(), eps), "color should match") && ok;
+  return ok;
+}
+
+/*
+ * @brief 途中でモデルを切り替えても工程/経過が壊れないことを検証します。
+ *
+ * @return 成功なら true
+ */
+bool test_model_switch_regression() {
+  tea_gui::TeaBatch switched;
+  tea_gui::TeaBatch baseline;
+
+  switched.set_model(tea::ModelType::GENTLE);
+  baseline.set_model(tea::ModelType::GENTLE);
+  switched.reset();
+  baseline.reset();
+
+  switched.update(31.0);
+  baseline.update(31.0);
+
+  const tea::ProcessState p0 = baseline.process();
+  const int e0 = baseline.elapsed_seconds();
+
+  switched.set_model(tea::ModelType::AGGRESSIVE);
+
+  switched.update(10.0);
+  baseline.update(10.0);
+
+  bool ok = true;
+  ok = expect(switched.process() == p0, "process should not reset") && ok;
+  ok = expect(switched.elapsed_seconds() == e0 + 10,
+              "elapsed_seconds should continue") && ok;
+  ok = expect(switched.aroma() > baseline.aroma(),
+              "AGGRESSIVE after switch should increase aroma faster") && ok;
   return ok;
 }
 
@@ -136,7 +248,10 @@ int main() {
   ok = test_stage_boundary_carryover() && ok;
   ok = test_reaches_finished() && ok;
   ok = test_model_scaling_effect() && ok;
-  ok = test_fractional_dt_accumulates() && ok;
+  ok = test_fractional_dt_accumulation() && ok;
+  ok = test_multiple_stage_boundaries() && ok;
+  ok = test_overrun_after_finished() && ok;
+  ok = test_model_switch_regression() && ok;
 
   if (!ok) {
     return 1;
@@ -144,5 +259,6 @@ int main() {
   std::cout << "unit_tests: OK\n";
   return 0;
 }
+
 
 

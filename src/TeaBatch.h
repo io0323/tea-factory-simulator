@@ -12,19 +12,13 @@
 #include <string>
 #include <memory> // For std::unique_ptr
 
-// GUI版のモデル種別と工程状態の定義をdomainからインクルード
+// モデル種別と工程状態の定義を domain からインクルード
 #include "domain/Model.h"
 #include "domain/ProcessState.h"
 #include "process/IProcess.h" // For IProcess
 #include "domain/TeaLeaf.h" // For tea::TeaLeaf
 
 namespace tea_gui {
-
-// tea::ModelTypeとtea::ProcessStateはdomain/Model.hとdomain/ProcessState.hで定義されているため、ここでは不要。
-// ただし、to_string関数はtea_gui::名前空間に属するため、ここではそのまま残します。
-const char* to_string(tea::ModelType type);
-const char* to_string(tea::ProcessState state);
-
 
 /*
   茶葉1バッチの状態と、工程遷移・物性更新ロジックを保持します。
@@ -63,30 +57,26 @@ class TeaBatch final {
   std::string quality_status() const;
 
  private:
-  /* 値域へクランプします。 */
-  void normalize();
-
-  /* 現在工程の残り時間（秒）を返します。 */
-  double stage_remaining_seconds() const;
-
-  /* 工程の閾値で次工程へ進めます。 */
-  void advance_stage_if_needed();
+  /* 工程の既定所要時間（秒）を返します。 */
+  static int default_stage_seconds(tea::ProcessState state);
 
   tea::ModelType model_ = tea::ModelType::DEFAULT;
   tea::ModelParams model_params_;
   
   std::unique_ptr<tea::IProcess> current_process_handler_;
   
-  double stage_elapsed_seconds_ = 0.0;
-  double total_elapsed_seconds_ = 0.0;
-  /*
-    GUI側はフレームdt（小数）で update() を呼ぶため、
-    1秒未満を蓄積して「整数秒になった分だけ」工程ロジックへ反映します。
-  */
-  double pending_seconds_ = 0.0;
+  /* フレーム単位の経過時間を蓄積し、1秒単位で工程へ適用します。 */
+  double time_accumulator_seconds_ = 0.0;
+
+  /* 離散時間（秒）での経過を保持します。 */
+  int elapsed_seconds_ = 0;
+
+  /* 現在工程の残り時間（秒）です。 */
+  int stage_remaining_seconds_ = 0;
 
   tea::TeaLeaf leaf_; // 追加
 
+  bool has_quality_score_final_ = false;
   double quality_score_final_ = 0.0;
   /* FINISHED 到達時の品質スコアを確定したかどうかを保持します。 */
   bool has_quality_score_final_ = false;
