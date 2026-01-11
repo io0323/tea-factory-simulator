@@ -79,10 +79,17 @@ class TeaBatch final {
   
   double stage_elapsed_seconds_ = 0.0;
   double total_elapsed_seconds_ = 0.0;
+  /*
+    GUI側はフレームdt（小数）で update() を呼ぶため、
+    1秒未満を蓄積して「整数秒になった分だけ」工程ロジックへ反映します。
+  */
+  double pending_seconds_ = 0.0;
 
   tea::TeaLeaf leaf_; // 追加
 
   double quality_score_final_ = 0.0;
+  /* FINISHED 到達時の品質スコアを確定したかどうかを保持します。 */
+  bool has_quality_score_final_ = false;
 };
 
 } /* namespace tea_gui */

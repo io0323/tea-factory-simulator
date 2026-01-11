@@ -98,10 +98,12 @@ void TeaBatch::set_model(tea::ModelType type) {
 void TeaBatch::reset() {
   stage_elapsed_seconds_ = 0.0;
   total_elapsed_seconds_ = 0.0;
+  pending_seconds_ = 0.0;
 
   leaf_ = tea::TeaLeaf(); // TeaLeafを初期化
 
   quality_score_final_ = 0.0;
+  has_quality_score_final_ = false;
   normalize();
   
   // プロセスをSTEAMINGにリセット
@@ -121,17 +123,43 @@ void TeaBatch::update(double delta_seconds) {
     return;
   }
 
-  const double dt = std::max(0.0, delta_seconds);
-  stage_elapsed_seconds_ += dt;
-  total_elapsed_seconds_ += dt;
+  pending_seconds_ += std::max(0.0, delta_seconds);
+  int remaining_seconds =
+      static_cast<int>(std::floor(pending_seconds_));
+  pending_seconds_ -= static_cast<double>(remaining_seconds);
+  if (remaining_seconds <= 0) {
+    return;
+  }
 
-  current_process_handler_->apply_step(leaf_, static_cast<int>(dt)); // TeaLeafを渡す
+  /*
+    小数dtは蓄積し、整数秒になった分だけ状態更新します。
+    さらに工程境界を跨ぐ場合は「工程残り時間で分割」して適用します。
+  */
+  while (remaining_seconds > 0 &&
+         current_process_handler_ != nullptr &&
+         current_process_handler_->state() != tea::ProcessState::FINISHED) {
+    const int stage_remaining =
+        static_cast<int>(stage_remaining_seconds());
+    const int step_seconds = std::min(remaining_seconds, stage_remaining);
+    if (step_seconds <= 0) {
+      break;
+    }
 
-  normalize();
-  advance_stage_if_needed();
+    stage_elapsed_seconds_ += static_cast<double>(step_seconds);
+    total_elapsed_seconds_ += static_cast<double>(step_seconds);
 
-  if (current_process_handler_->state() == tea::ProcessState::FINISHED && quality_score_final_ == 0.0) {
+    current_process_handler_->apply_step(leaf_, step_seconds);
+    normalize();
+    advance_stage_if_needed();
+
+    remaining_seconds -= step_seconds;
+  }
+
+  if (!has_quality_score_final_ &&
+      (current_process_handler_ == nullptr ||
+       current_process_handler_->state() == tea::ProcessState::FINISHED)) {
     quality_score_final_ = quality_score();
+    has_quality_score_final_ = true;
   }
 }
 
@@ -226,9 +254,12 @@ double TeaBatch::quality_score() const {
  * @return 品質ステータスを表す文字列
  */
 std::string TeaBatch::quality_status() const {
+  const bool is_finished =
+      (current_process_handler_ == nullptr) ||
+      (current_process_handler_->state() == tea::ProcessState::FINISHED);
   const double score =
-      (current_process_handler_ == nullptr || current_process_handler_->state() == tea::ProcessState::FINISHED) ? quality_score_final_
-                                           : quality_score();
+      (is_finished && has_quality_score_final_) ? quality_score_final_
+                                                : quality_score();
   if (score >= 80.0) {
     return "GOOD";
   }
