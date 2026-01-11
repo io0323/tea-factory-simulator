@@ -65,7 +65,6 @@ int main(int argc, char** argv) {
   std::vector<tea::Simulator> sims;
   sims.reserve(static_cast<std::size_t>(batches));
   for (int i = 0; i < batches; ++i) {
-    tea::Simulator s(config);
     tea::TeaLeaf leaf;
     /*
       バッチ差分は決定論的に小さく付与します（乱数は使わない）。
@@ -74,8 +73,8 @@ int main(int argc, char** argv) {
     leaf.moisture = tea::clamp(leaf.moisture - 0.01 * i, 0.0, 1.0);
     leaf.aroma = tea::clamp(leaf.aroma + 0.5 * i, 0.0, 100.0);
     leaf.color = tea::clamp(leaf.color + 0.3 * i, 0.0, 100.0);
-    s.set_initial_leaf(leaf);
-    sims.push_back(std::move(s));
+    sims.emplace_back(config);
+    sims.back().set_initial_leaf(leaf);
   }
 
   std::vector<std::optional<tea_io::CsvWriter>> csvs;
