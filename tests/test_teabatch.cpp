@@ -81,7 +81,7 @@ bool test_reaches_finished() {
   b.update(30.0);
   b.update(30.0);
   b.update(60.0);
-  return expect(b.process() == tea_gui::ProcessState::FINISHED,
+  return expect(b.process() == tea::ProcessState::FINISHED,
                 "TeaBatch should reach FINISHED after 120s");
 }
 
@@ -93,8 +93,8 @@ bool test_reaches_finished() {
 bool test_model_scaling_effect() {
   tea_gui::TeaBatch gentle;
   tea_gui::TeaBatch aggr;
-  gentle.set_model(tea_gui::ModelType::GENTLE);
-  aggr.set_model(tea_gui::ModelType::AGGRESSIVE);
+  gentle.set_model(tea::ModelType::GENTLE);
+  aggr.set_model(tea::ModelType::AGGRESSIVE);
   gentle.reset();
   aggr.reset();
 
@@ -103,6 +103,25 @@ bool test_model_scaling_effect() {
 
   return expect(aggr.aroma() > gentle.aroma(),
                 "AGGRESSIVE should increase aroma faster than GENTLE");
+}
+
+/*
+ * @brief 小数dtを蓄積して、整数秒になったときだけ進むことを検証します。
+ *
+ * @return 成功なら true
+ */
+bool test_fractional_dt_accumulates() {
+  tea_gui::TeaBatch b;
+  b.reset();
+  b.update(0.4);
+  b.update(0.4);
+  b.update(0.4);
+  bool ok = true;
+  ok = expect(b.elapsed_seconds() == 1,
+              "elapsed_seconds should advance after 1.2s input") && ok;
+  ok = expect(b.process() == tea::ProcessState::STEAMING,
+              "process should remain STEAMING at t=1s") && ok;
+  return ok;
 }
 
 } /* namespace */
@@ -117,6 +136,7 @@ int main() {
   ok = test_stage_boundary_carryover() && ok;
   ok = test_reaches_finished() && ok;
   ok = test_model_scaling_effect() && ok;
+  ok = test_fractional_dt_accumulates() && ok;
 
   if (!ok) {
     return 1;
