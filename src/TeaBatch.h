@@ -78,6 +78,8 @@ class TeaBatch final {
 
   bool has_quality_score_final_ = false;
   double quality_score_final_ = 0.0;
+  /* FINISHED 到達時の品質スコアを確定したかどうかを保持します。 */
+  bool has_quality_score_final_ = false;
 };
 
 } /* namespace tea_gui */

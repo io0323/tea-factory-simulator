@@ -291,6 +291,9 @@ double TeaBatch::quality_score() const {
  * @return 品質ステータスを表す文字列
  */
 std::string TeaBatch::quality_status() const {
+  const bool is_finished =
+      (current_process_handler_ == nullptr) ||
+      (current_process_handler_->state() == tea::ProcessState::FINISHED);
   const double score =
       (process() == tea::ProcessState::FINISHED && has_quality_score_final_)
           ? quality_score_final_
