@@ -33,3 +33,17 @@ target_include_directories(teabatch_tests PRIVATE ${CMAKE_SOURCE_DIR}/src)
 
 add_test(NAME teabatch_tests COMMAND teabatch_tests)
 
+add_executable(simulator_tests
+  test_simulator.cpp
+  ${CMAKE_SOURCE_DIR}/src/simulation/Simulator.cpp
+  ${CMAKE_SOURCE_DIR}/src/io/CsvWriter.cpp
+  ${CMAKE_SOURCE_DIR}/src/domain/Model.cpp
+  ${CMAKE_SOURCE_DIR}/src/process/SteamingProcess.cpp
+  ${CMAKE_SOURCE_DIR}/src/process/RollingProcess.cpp
+  ${CMAKE_SOURCE_DIR}/src/process/DryingProcess.cpp
+)
+
+target_include_directories(simulator_tests PRIVATE ${CMAKE_SOURCE_DIR}/src)
+
+add_test(NAME simulator_tests COMMAND simulator_tests)
+
