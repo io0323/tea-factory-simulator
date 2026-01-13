@@ -44,7 +44,7 @@ class Simulator final {
   /* 1 ステップ進めます。完了済みなら false を返します。 */
   bool step(int dt_seconds, ::tea_io::CsvWriter* csv);
 
-  /* 現在工程を返します（完了時は DRYING のままになり得ます）。 */
+  /* 現在工程を返します（完了時は FINISHED を返します）。 */
   ProcessState current_process() const;
 
   /* 現在の茶葉状態を返します。 */

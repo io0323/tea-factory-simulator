@@ -14,11 +14,7 @@
 namespace tea {
 
 /* 既定設定で構築します。 */
-Simulator::Simulator() : config_() {
-  build_default_stages();
-  stage_index_ = 0;
-  stage_remaining_seconds_ =
-      stages_.empty() ? 0 : stages_.front().duration_seconds;
+Simulator::Simulator() : Simulator(SimulationConfig()) {
 }
 
 /* 設定を指定して構築します。 */
@@ -38,22 +34,21 @@ void Simulator::set_initial_leaf(const TeaLeaf& leaf) {
 /* 既定のステージ構成（蒸し→揉捻→乾燥）を作ります。 */
 void Simulator::build_default_stages() {
   stages_.clear();
+  stages_.reserve(3);
   const ModelParams model = make_model(config_.model);
 
-  Stage steaming;
-  steaming.process = std::make_unique<SteamingProcess>(model.steaming);
-  steaming.duration_seconds = config_.steaming_seconds;
-  stages_.push_back(std::move(steaming));
-
-  Stage rolling;
-  rolling.process = std::make_unique<RollingProcess>(model.rolling);
-  rolling.duration_seconds = config_.rolling_seconds;
-  stages_.push_back(std::move(rolling));
-
-  Stage drying;
-  drying.process = std::make_unique<DryingProcess>(model.drying);
-  drying.duration_seconds = config_.drying_seconds;
-  stages_.push_back(std::move(drying));
+  stages_.push_back(Stage{
+    std::make_unique<SteamingProcess>(model.steaming),
+    config_.steaming_seconds
+  });
+  stages_.push_back(Stage{
+    std::make_unique<RollingProcess>(model.rolling),
+    config_.rolling_seconds
+  });
+  stages_.push_back(Stage{
+    std::make_unique<DryingProcess>(model.drying),
+    config_.drying_seconds
+  });
 }
 
 /* 全工程を実行し、各ステップの状態を出力します。 */
@@ -110,7 +105,7 @@ bool Simulator::step(int dt_seconds, ::tea_io::CsvWriter* csv) {
 /* 現在工程を返します。 */
 ProcessState Simulator::current_process() const {
   if (stages_.empty() || stage_index_ >= stages_.size()) {
-    return ProcessState::DRYING;
+    return ProcessState::FINISHED;
   }
   return stages_[stage_index_].process->state();
 }
