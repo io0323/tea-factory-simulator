@@ -36,3 +36,12 @@ target_include_directories(simulator_tests PRIVATE ${CMAKE_SOURCE_DIR}/src)
 
 add_test(NAME simulator_tests COMMAND simulator_tests)
 
+add_executable(csvwriter_tests
+  test_csvwriter.cpp
+  ${CMAKE_SOURCE_DIR}/src/io/CsvWriter.cpp
+)
+
+target_include_directories(csvwriter_tests PRIVATE ${CMAKE_SOURCE_DIR}/src)
+
+add_test(NAME csvwriter_tests COMMAND csvwriter_tests)
+
