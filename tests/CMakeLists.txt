@@ -45,3 +45,15 @@ target_include_directories(csvwriter_tests PRIVATE ${CMAKE_SOURCE_DIR}/src)
 
 add_test(NAME csvwriter_tests COMMAND csvwriter_tests)
 
+add_executable(process_tests
+  test_processes.cpp
+  ${CMAKE_SOURCE_DIR}/src/domain/Model.cpp
+  ${CMAKE_SOURCE_DIR}/src/process/SteamingProcess.cpp
+  ${CMAKE_SOURCE_DIR}/src/process/RollingProcess.cpp
+  ${CMAKE_SOURCE_DIR}/src/process/DryingProcess.cpp
+)
+
+target_include_directories(process_tests PRIVATE ${CMAKE_SOURCE_DIR}/src)
+
+add_test(NAME process_tests COMMAND process_tests)
+
