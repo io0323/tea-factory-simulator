@@ -70,6 +70,15 @@ void Simulator::run(std::ostream& os, ::tea_io::CsvWriter* csv) {
 
 /* 1 ステップ進めます。完了済みなら false を返します。 */
 bool Simulator::step(int dt_seconds, ::tea_io::CsvWriter* csv) {
+  /*
+    dt_seconds は正の整数を想定します。
+    不正値（0以下）は進捗が生まれず呼び出し側で無限ループの原因になるため、
+    ここで弾きます。
+  */
+  if (dt_seconds <= 0) {
+    return false;
+  }
+
   if (stages_.empty() || stage_index_ >= stages_.size()) {
     return false;
   }
