@@ -116,6 +116,26 @@ bool test_process_order_progresses() {
   return ok;
 }
 
+/*
+ * @brief dt が 0 以下の場合、進めず false を返すことを検証します。
+ *
+ * @return 成功なら true
+ */
+bool test_dt_non_positive_is_rejected() {
+  tea::SimulationConfig config;
+  config.dt_seconds = 1;
+  config.steaming_seconds = 5;
+  config.rolling_seconds = 5;
+  config.drying_seconds = 5;
+  tea::Simulator sim(config);
+
+  const bool ok0 = expect(!sim.step(0, nullptr), "dt=0 should be rejected");
+  const bool ok1 = expect(!sim.step(-1, nullptr), "dt=-1 should be rejected");
+  const bool ok2 = expect(sim.elapsed_seconds() == 0,
+                          "elapsed_seconds should remain 0");
+  return ok0 && ok1 && ok2;
+}
+
 } /* namespace */
 
 /*
@@ -127,6 +147,7 @@ int main() {
   bool ok = true;
   ok = test_dt_is_split_to_fit_stage_duration() && ok;
   ok = test_process_order_progresses() && ok;
+  ok = test_dt_non_positive_is_rejected() && ok;
 
   if (!ok) {
     return 1;
