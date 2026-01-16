@@ -1,13 +1,10 @@
 add_executable(unit_tests
   test_teabatch.cpp
   ${CMAKE_SOURCE_DIR}/src/TeaBatch.cpp
-  ${CMAKE_SOURCE_DIR}/src/domain/Model.cpp
-  ${CMAKE_SOURCE_DIR}/src/process/SteamingProcess.cpp
-  ${CMAKE_SOURCE_DIR}/src/process/RollingProcess.cpp
-  ${CMAKE_SOURCE_DIR}/src/process/DryingProcess.cpp
 )
 
 target_include_directories(unit_tests PRIVATE ${CMAKE_SOURCE_DIR}/src)
+target_link_libraries(unit_tests PRIVATE tea_core)
 
 add_test(NAME unit_tests COMMAND unit_tests)
 
@@ -24,36 +21,28 @@ add_test(NAME teabatch_tests COMMAND unit_tests)
 
 add_executable(simulator_tests
   test_simulator.cpp
-  ${CMAKE_SOURCE_DIR}/src/simulation/Simulator.cpp
-  ${CMAKE_SOURCE_DIR}/src/io/CsvWriter.cpp
-  ${CMAKE_SOURCE_DIR}/src/domain/Model.cpp
-  ${CMAKE_SOURCE_DIR}/src/process/SteamingProcess.cpp
-  ${CMAKE_SOURCE_DIR}/src/process/RollingProcess.cpp
-  ${CMAKE_SOURCE_DIR}/src/process/DryingProcess.cpp
 )
 
 target_include_directories(simulator_tests PRIVATE ${CMAKE_SOURCE_DIR}/src)
+target_link_libraries(simulator_tests PRIVATE tea_core)
 
 add_test(NAME simulator_tests COMMAND simulator_tests)
 
 add_executable(csvwriter_tests
   test_csvwriter.cpp
-  ${CMAKE_SOURCE_DIR}/src/io/CsvWriter.cpp
 )
 
 target_include_directories(csvwriter_tests PRIVATE ${CMAKE_SOURCE_DIR}/src)
+target_link_libraries(csvwriter_tests PRIVATE tea_core)
 
 add_test(NAME csvwriter_tests COMMAND csvwriter_tests)
 
 add_executable(process_tests
   test_processes.cpp
-  ${CMAKE_SOURCE_DIR}/src/domain/Model.cpp
-  ${CMAKE_SOURCE_DIR}/src/process/SteamingProcess.cpp
-  ${CMAKE_SOURCE_DIR}/src/process/RollingProcess.cpp
-  ${CMAKE_SOURCE_DIR}/src/process/DryingProcess.cpp
 )
 
 target_include_directories(process_tests PRIVATE ${CMAKE_SOURCE_DIR}/src)
+target_link_libraries(process_tests PRIVATE tea_core)
 
 add_test(NAME process_tests COMMAND process_tests)
 

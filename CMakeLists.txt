@@ -9,19 +9,25 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 option(TEAFACTORY_BUILD_CLI "Build CLI simulator (no GUI deps)" ON)
 option(TEAFACTORY_BUILD_GUI "Build GUI dashboard (ImGui/GLFW/OpenGL3)" ON)
 
+add_library(tea_core STATIC
+  src/io/CsvWriter.cpp
+  src/domain/Model.cpp
+  src/process/SteamingProcess.cpp
+  src/process/RollingProcess.cpp
+  src/process/DryingProcess.cpp
+  src/simulation/Simulator.cpp
+)
+
+target_include_directories(tea_core PUBLIC src)
+
 if(TEAFACTORY_BUILD_CLI)
   add_executable(tea_factory_simulator_cli
     src/cli/main.cpp
     src/cli/Args.cpp
-    src/io/CsvWriter.cpp
-    src/domain/Model.cpp
-    src/process/SteamingProcess.cpp
-    src/process/RollingProcess.cpp
-    src/process/DryingProcess.cpp
-    src/simulation/Simulator.cpp
   )
 
   target_include_directories(tea_factory_simulator_cli PRIVATE src)
+  target_link_libraries(tea_factory_simulator_cli PRIVATE tea_core)
 endif()
 
 if(TEAFACTORY_BUILD_GUI)
