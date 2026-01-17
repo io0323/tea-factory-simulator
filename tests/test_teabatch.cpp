@@ -5,39 +5,11 @@
  * 外部テストフレームワークに依存せず、CTest から実行できる最小の検証を行います。
  */
 
-#include <cmath>
-#include <iostream>
-
 #include "TeaBatch.h"
 
+#include "test_utils.h"
+
 namespace {
-
-/*
- * @brief 条件が偽ならエラー表示し、失敗扱いにします。
- *
- * @param ok 検証結果
- * @param msg 失敗時のメッセージ
- * @return ok が真なら true
- */
-bool expect(bool ok, const char* msg) {
-  if (ok) {
-    return true;
-  }
-  std::cerr << "EXPECT FAILED: " << (msg ? msg : "(null)") << '\n';
-  return false;
-}
-
-/*
- * @brief 2つの実数が近いことを検証します。
- *
- * @param a 値1
- * @param b 値2
- * @param eps 許容誤差
- * @return 近いなら true
- */
-bool nearly(double a, double b, double eps) {
-  return std::fabs(a - b) <= eps;
-}
 
 /*
  * @brief 工程境界を跨ぐ dt を与えても、分割適用と一致することを検証します。
@@ -58,15 +30,19 @@ bool test_stage_boundary_carryover() {
 
   const double eps = 1e-9;
   bool ok = true;
-  ok = expect(a.process() == b.process(), "process should match") && ok;
-  ok = expect(a.elapsed_seconds() == b.elapsed_seconds(),
-              "elapsed_seconds should match") && ok;
-  ok = expect(nearly(a.moisture(), b.moisture(), eps), "moisture should match")
+  ok = tea_test::expect(a.process() == b.process(), "process should match")
        && ok;
-  ok = expect(nearly(a.temperature_c(), b.temperature_c(), eps),
-              "temperature should match") && ok;
-  ok = expect(nearly(a.aroma(), b.aroma(), eps), "aroma should match") && ok;
-  ok = expect(nearly(a.color(), b.color(), eps), "color should match") && ok;
+  ok = tea_test::expect(a.elapsed_seconds() == b.elapsed_seconds(),
+                        "elapsed_seconds should match") && ok;
+  ok = tea_test::expect(tea_test::nearly(a.moisture(), b.moisture(), eps),
+                        "moisture should match") && ok;
+  ok = tea_test::expect(
+      tea_test::nearly(a.temperature_c(), b.temperature_c(), eps),
+      "temperature should match") && ok;
+  ok = tea_test::expect(tea_test::nearly(a.aroma(), b.aroma(), eps),
+                        "aroma should match") && ok;
+  ok = tea_test::expect(tea_test::nearly(a.color(), b.color(), eps),
+                        "color should match") && ok;
   return ok;
 }
 
@@ -81,8 +57,8 @@ bool test_reaches_finished() {
   b.update(30.0);
   b.update(30.0);
   b.update(60.0);
-  return expect(b.process() == tea::ProcessState::FINISHED,
-                "TeaBatch should reach FINISHED after 120s");
+  return tea_test::expect(b.process() == tea::ProcessState::FINISHED,
+                          "TeaBatch should reach FINISHED after 120s");
 }
 
 /*
@@ -101,8 +77,8 @@ bool test_model_scaling_effect() {
   gentle.update(10.0);
   aggr.update(10.0);
 
-  return expect(aggr.aroma() > gentle.aroma(),
-                "AGGRESSIVE should increase aroma faster than GENTLE");
+  return tea_test::expect(aggr.aroma() > gentle.aroma(),
+                          "AGGRESSIVE should increase aroma faster than GENTLE");
 }
 
 /*
@@ -123,18 +99,20 @@ bool test_fractional_dt_accumulation() {
 
   const double eps = 1e-6;
   bool ok = true;
-  ok = expect(a.elapsed_seconds() == b.elapsed_seconds(),
-              "elapsed_seconds should match (0.1s x 10 ~= 1.0s)") && ok;
-  ok = expect(a.process() == b.process(),
-              "process should match (0.1s x 10 ~= 1.0s)") && ok;
-  ok = expect(nearly(a.moisture(), b.moisture(), eps),
-              "moisture should match (0.1s x 10 ~= 1.0s)") && ok;
-  ok = expect(nearly(a.temperature_c(), b.temperature_c(), eps),
-              "temperature should match (0.1s x 10 ~= 1.0s)") && ok;
-  ok = expect(nearly(a.aroma(), b.aroma(), eps),
-              "aroma should match (0.1s x 10 ~= 1.0s)") && ok;
-  ok = expect(nearly(a.color(), b.color(), eps),
-              "color should match (0.1s x 10 ~= 1.0s)") && ok;
+  ok = tea_test::expect(a.elapsed_seconds() == b.elapsed_seconds(),
+                        "elapsed_seconds should match (0.1s x 10 ~= 1.0s)")
+       && ok;
+  ok = tea_test::expect(a.process() == b.process(),
+                        "process should match (0.1s x 10 ~= 1.0s)") && ok;
+  ok = tea_test::expect(tea_test::nearly(a.moisture(), b.moisture(), eps),
+                        "moisture should match (0.1s x 10 ~= 1.0s)") && ok;
+  ok = tea_test::expect(
+      tea_test::nearly(a.temperature_c(), b.temperature_c(), eps),
+      "temperature should match (0.1s x 10 ~= 1.0s)") && ok;
+  ok = tea_test::expect(tea_test::nearly(a.aroma(), b.aroma(), eps),
+                        "aroma should match (0.1s x 10 ~= 1.0s)") && ok;
+  ok = tea_test::expect(tea_test::nearly(a.color(), b.color(), eps),
+                        "color should match (0.1s x 10 ~= 1.0s)") && ok;
   return ok;
 }
 
@@ -158,15 +136,19 @@ bool test_multiple_stage_boundaries() {
 
   const double eps = 1e-9;
   bool ok = true;
-  ok = expect(a.process() == b.process(), "process should match") && ok;
-  ok = expect(a.elapsed_seconds() == b.elapsed_seconds(),
-              "elapsed_seconds should match") && ok;
-  ok = expect(nearly(a.moisture(), b.moisture(), eps), "moisture should match")
+  ok = tea_test::expect(a.process() == b.process(), "process should match")
        && ok;
-  ok = expect(nearly(a.temperature_c(), b.temperature_c(), eps),
-              "temperature should match") && ok;
-  ok = expect(nearly(a.aroma(), b.aroma(), eps), "aroma should match") && ok;
-  ok = expect(nearly(a.color(), b.color(), eps), "color should match") && ok;
+  ok = tea_test::expect(a.elapsed_seconds() == b.elapsed_seconds(),
+                        "elapsed_seconds should match") && ok;
+  ok = tea_test::expect(tea_test::nearly(a.moisture(), b.moisture(), eps),
+                        "moisture should match") && ok;
+  ok = tea_test::expect(
+      tea_test::nearly(a.temperature_c(), b.temperature_c(), eps),
+      "temperature should match") && ok;
+  ok = tea_test::expect(tea_test::nearly(a.aroma(), b.aroma(), eps),
+                        "aroma should match") && ok;
+  ok = tea_test::expect(tea_test::nearly(a.color(), b.color(), eps),
+                        "color should match") && ok;
   return ok;
 }
 
@@ -187,18 +169,23 @@ bool test_overrun_after_finished() {
 
   const double eps = 1e-9;
   bool ok = true;
-  ok = expect(a.process() == tea::ProcessState::FINISHED,
-              "a should be FINISHED") && ok;
-  ok = expect(b.process() == tea::ProcessState::FINISHED,
-              "b should be FINISHED") && ok;
-  ok = expect(a.elapsed_seconds() == 120, "a elapsed should be 120") && ok;
-  ok = expect(b.elapsed_seconds() == 120, "b elapsed should be 120") && ok;
-  ok = expect(nearly(a.moisture(), b.moisture(), eps), "moisture should match")
+  ok = tea_test::expect(a.process() == tea::ProcessState::FINISHED,
+                        "a should be FINISHED") && ok;
+  ok = tea_test::expect(b.process() == tea::ProcessState::FINISHED,
+                        "b should be FINISHED") && ok;
+  ok = tea_test::expect(a.elapsed_seconds() == 120, "a elapsed should be 120")
        && ok;
-  ok = expect(nearly(a.temperature_c(), b.temperature_c(), eps),
-              "temperature should match") && ok;
-  ok = expect(nearly(a.aroma(), b.aroma(), eps), "aroma should match") && ok;
-  ok = expect(nearly(a.color(), b.color(), eps), "color should match") && ok;
+  ok = tea_test::expect(b.elapsed_seconds() == 120, "b elapsed should be 120")
+       && ok;
+  ok = tea_test::expect(tea_test::nearly(a.moisture(), b.moisture(), eps),
+                        "moisture should match") && ok;
+  ok = tea_test::expect(
+      tea_test::nearly(a.temperature_c(), b.temperature_c(), eps),
+      "temperature should match") && ok;
+  ok = tea_test::expect(tea_test::nearly(a.aroma(), b.aroma(), eps),
+                        "aroma should match") && ok;
+  ok = tea_test::expect(tea_test::nearly(a.color(), b.color(), eps),
+                        "color should match") && ok;
   return ok;
 }
 
@@ -228,11 +215,13 @@ bool test_model_switch_regression() {
   baseline.update(10.0);
 
   bool ok = true;
-  ok = expect(switched.process() == p0, "process should not reset") && ok;
-  ok = expect(switched.elapsed_seconds() == e0 + 10,
-              "elapsed_seconds should continue") && ok;
-  ok = expect(switched.aroma() > baseline.aroma(),
-              "AGGRESSIVE after switch should increase aroma faster") && ok;
+  ok = tea_test::expect(switched.process() == p0, "process should not reset")
+       && ok;
+  ok = tea_test::expect(switched.elapsed_seconds() == e0 + 10,
+                        "elapsed_seconds should continue") && ok;
+  ok = tea_test::expect(switched.aroma() > baseline.aroma(),
+                        "AGGRESSIVE after switch should increase aroma faster")
+       && ok;
   return ok;
 }
 
