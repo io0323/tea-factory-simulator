@@ -5,28 +5,14 @@
  * 外部テストフレームワークに依存せず、CTest から実行できる最小の検証を行います。
  */
 
-#include <iostream>
 #include <string>
 #include <vector>
 
 #include "cli/Args.h"
 
-namespace {
+#include "test_utils.h"
 
-/*
- * @brief 条件が偽ならエラー表示し、失敗扱いにします。
- *
- * @param ok 検証結果
- * @param msg 失敗時のメッセージ
- * @return ok が真なら true
- */
-bool expect(bool ok, const char* msg) {
-  if (ok) {
-    return true;
-  }
-  std::cerr << "EXPECT FAILED: " << (msg ? msg : "(null)") << '\n';
-  return false;
-}
+namespace {
 
 /*
  * @brief argv を組み立てて parse_args を呼びます。
@@ -52,8 +38,10 @@ bool test_dt_can_exceed_stage_seconds() {
   const tea_cli::Args args = parse_from(
       {"tea_factory_simulator_cli", "--dt", "120"});
   bool ok = true;
-  ok = expect(!args.error.has_value(), "dt=120 should be accepted") && ok;
-  ok = expect(args.dt_seconds == 120, "dt_seconds should be 120") && ok;
+  ok = tea_test::expect(!args.error.has_value(),
+                        "dt=120 should be accepted") && ok;
+  ok = tea_test::expect(args.dt_seconds == 120, "dt_seconds should be 120")
+       && ok;
   return ok;
 }
 
@@ -65,7 +53,7 @@ bool test_dt_can_exceed_stage_seconds() {
 bool test_invalid_dt_is_rejected() {
   const tea_cli::Args args = parse_from(
       {"tea_factory_simulator_cli", "--dt", "0"});
-  return expect(args.error.has_value(), "dt=0 should be rejected");
+  return tea_test::expect(args.error.has_value(), "dt=0 should be rejected");
 }
 
 } /* namespace */
