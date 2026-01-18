@@ -225,6 +225,41 @@ bool test_model_switch_regression() {
   return ok;
 }
 
+/*
+ * @brief dt が 0 以下の場合、状態が進まないことを検証します。
+ *
+ * @return 成功なら true
+ */
+bool test_dt_non_positive_does_not_advance() {
+  tea_gui::TeaBatch b;
+  b.reset();
+
+  const tea::ProcessState p0 = b.process();
+  const int e0 = b.elapsed_seconds();
+  const double m0 = b.moisture();
+  const double t0 = b.temperature_c();
+  const double a0 = b.aroma();
+  const double c0 = b.color();
+
+  b.update(0.0);
+  b.update(-1.0);
+
+  const double eps = 1e-12;
+  bool ok = true;
+  ok = tea_test::expect(b.process() == p0, "process should not change") && ok;
+  ok = tea_test::expect(b.elapsed_seconds() == e0,
+                        "elapsed_seconds should not change") && ok;
+  ok = tea_test::expect(tea_test::nearly(b.moisture(), m0, eps),
+                        "moisture should not change") && ok;
+  ok = tea_test::expect(tea_test::nearly(b.temperature_c(), t0, eps),
+                        "temperature should not change") && ok;
+  ok = tea_test::expect(tea_test::nearly(b.aroma(), a0, eps),
+                        "aroma should not change") && ok;
+  ok = tea_test::expect(tea_test::nearly(b.color(), c0, eps),
+                        "color should not change") && ok;
+  return ok;
+}
+
 } /* namespace */
 
 /*
@@ -241,6 +276,7 @@ int main() {
   ok = test_multiple_stage_boundaries() && ok;
   ok = test_overrun_after_finished() && ok;
   ok = test_model_switch_regression() && ok;
+  ok = test_dt_non_positive_does_not_advance() && ok;
 
   if (!ok) {
     return 1;

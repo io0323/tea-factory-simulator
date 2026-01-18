@@ -77,17 +77,12 @@ if(TEAFACTORY_BUILD_GUI)
 
   add_executable(TeaFactorySimulator
     src/main.cpp
-    src/io/CsvWriter.cpp
-    src/domain/Model.cpp
-    src/process/SteamingProcess.cpp
-    src/process/RollingProcess.cpp
-    src/process/DryingProcess.cpp
     src/TeaBatch.cpp
     src/Simulator.cpp
   )
 
   target_include_directories(TeaFactorySimulator PRIVATE src)
-  target_link_libraries(TeaFactorySimulator PRIVATE imgui_lib glfw)
+  target_link_libraries(TeaFactorySimulator PRIVATE imgui_lib glfw tea_core)
 
   if(APPLE)
     target_compile_definitions(TeaFactorySimulator PRIVATE GL_SILENCE_DEPRECATION)
