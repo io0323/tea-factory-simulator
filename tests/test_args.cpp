@@ -56,6 +56,88 @@ bool test_invalid_dt_is_rejected() {
   return tea_test::expect(args.error.has_value(), "dt=0 should be rejected");
 }
 
+/*
+ * @brief 値が不足している場合にエラーになることを検証します。
+ *
+ * @return 成功なら true
+ */
+bool test_missing_value_is_rejected() {
+  const tea_cli::Args args = parse_from({"tea_factory_simulator_cli", "--dt"});
+  return tea_test::expect(args.error.has_value(),
+                          "missing value for --dt should be rejected");
+}
+
+/*
+ * @brief 未知の引数がエラーになることを検証します。
+ *
+ * @return 成功なら true
+ */
+bool test_unknown_argument_is_rejected() {
+  const tea_cli::Args args = parse_from(
+      {"tea_factory_simulator_cli", "--unknown"});
+  return tea_test::expect(args.error.has_value(),
+                          "unknown argument should be rejected");
+}
+
+/*
+ * @brief model の妥当/不正値を検証します。
+ *
+ * @return 成功なら true
+ */
+bool test_model_validation() {
+  bool ok = true;
+  {
+    const tea_cli::Args args = parse_from(
+        {"tea_factory_simulator_cli", "--model", "gentle"});
+    ok = tea_test::expect(!args.error.has_value(),
+                          "model=gentle should be accepted") && ok;
+    ok = tea_test::expect(args.model == "gentle", "model should be gentle")
+         && ok;
+  }
+  {
+    const tea_cli::Args args = parse_from(
+        {"tea_factory_simulator_cli", "--model", "invalid"});
+    ok = tea_test::expect(args.error.has_value(),
+                          "invalid model should be rejected") && ok;
+  }
+  return ok;
+}
+
+/*
+ * @brief batches の境界（最大128）を検証します。
+ *
+ * @return 成功なら true
+ */
+bool test_batches_bounds() {
+  bool ok = true;
+  {
+    const tea_cli::Args args = parse_from(
+        {"tea_factory_simulator_cli", "--batches", "128"});
+    ok = tea_test::expect(!args.error.has_value(),
+                          "batches=128 should be accepted") && ok;
+    ok = tea_test::expect(args.batches == 128, "batches should be 128") && ok;
+  }
+  {
+    const tea_cli::Args args = parse_from(
+        {"tea_factory_simulator_cli", "--batches", "129"});
+    ok = tea_test::expect(args.error.has_value(),
+                          "batches=129 should be rejected") && ok;
+  }
+  return ok;
+}
+
+/*
+ * @brief csv パスの空文字が拒否されることを検証します。
+ *
+ * @return 成功なら true
+ */
+bool test_csv_path_must_not_be_empty() {
+  const tea_cli::Args args = parse_from(
+      {"tea_factory_simulator_cli", "--csv", ""});
+  return tea_test::expect(args.error.has_value(),
+                          "empty csv path should be rejected");
+}
+
 } /* namespace */
 
 /*
@@ -67,6 +149,11 @@ int main() {
   bool ok = true;
   ok = test_dt_can_exceed_stage_seconds() && ok;
   ok = test_invalid_dt_is_rejected() && ok;
+  ok = test_missing_value_is_rejected() && ok;
+  ok = test_unknown_argument_is_rejected() && ok;
+  ok = test_model_validation() && ok;
+  ok = test_batches_bounds() && ok;
+  ok = test_csv_path_must_not_be_empty() && ok;
 
   if (!ok) {
     return 1;
