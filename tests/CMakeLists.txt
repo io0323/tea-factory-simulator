@@ -46,3 +46,12 @@ target_link_libraries(process_tests PRIVATE tea_core)
 
 add_test(NAME process_tests COMMAND process_tests)
 
+add_executable(model_tests
+  test_model.cpp
+)
+
+target_include_directories(model_tests PRIVATE ${CMAKE_SOURCE_DIR}/src)
+target_link_libraries(model_tests PRIVATE tea_core)
+
+add_test(NAME model_tests COMMAND model_tests)
+
