@@ -55,3 +55,12 @@ target_link_libraries(model_tests PRIVATE tea_core)
 
 add_test(NAME model_tests COMMAND model_tests)
 
+add_executable(tealeaf_tests
+  test_tealeaf.cpp
+)
+
+target_include_directories(tealeaf_tests PRIVATE ${CMAKE_SOURCE_DIR}/src)
+target_link_libraries(tealeaf_tests PRIVATE tea_core)
+
+add_test(NAME tealeaf_tests COMMAND tealeaf_tests)
+
