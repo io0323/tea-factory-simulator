@@ -64,3 +64,12 @@ target_link_libraries(tealeaf_tests PRIVATE tea_core)
 
 add_test(NAME tealeaf_tests COMMAND tealeaf_tests)
 
+add_executable(csvwriter_io_tests
+  test_csvwriter_io.cpp
+)
+
+target_include_directories(csvwriter_io_tests PRIVATE ${CMAKE_SOURCE_DIR}/src)
+target_link_libraries(csvwriter_io_tests PRIVATE tea_core)
+
+add_test(NAME csvwriter_io_tests COMMAND csvwriter_io_tests)
+
