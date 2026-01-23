@@ -73,3 +73,12 @@ target_link_libraries(csvwriter_io_tests PRIVATE tea_core)
 
 add_test(NAME csvwriter_io_tests COMMAND csvwriter_io_tests)
 
+add_executable(process_state_tests
+  test_process_state.cpp
+)
+
+target_include_directories(process_state_tests PRIVATE ${CMAKE_SOURCE_DIR}/src)
+target_link_libraries(process_state_tests PRIVATE tea_core)
+
+add_test(NAME process_state_tests COMMAND process_state_tests)
+
