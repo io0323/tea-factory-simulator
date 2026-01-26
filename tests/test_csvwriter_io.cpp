@@ -115,6 +115,37 @@ bool test_header_written_once_and_rows_appended() {
   return ok;
 }
 
+/*
+ * @brief write_row() がヘッダを自動出力することを検証します。
+ *
+ * @return 成功なら true
+ */
+bool test_write_row_writes_header_automatically() {
+  ScopedFile file(make_temp_csv_path());
+
+  {
+    tea_io::CsvWriter w(file.path());
+    w.write_row("STEAMING", 1, 0.75, 25.0, 10.0, 10.0);
+  }
+
+  const auto lines = read_lines(file.path());
+
+  bool ok = true;
+  ok = tea_test::expect(lines.size() == 2, "file should have 2 lines") && ok;
+  if (lines.size() >= 1) {
+    ok = tea_test::expect(
+        lines[0] ==
+            "process,elapsedSeconds,moisture,temperatureC,aroma,color,"
+            "qualityScore,qualityStatus",
+        "header line should match exactly") && ok;
+  }
+  if (lines.size() >= 2) {
+    ok = tea_test::expect(lines[1].find("STEAMING,1,") == 0,
+                          "row should start with process/time") && ok;
+  }
+  return ok;
+}
+
 } /* namespace */
 
 /*
@@ -125,6 +156,7 @@ bool test_header_written_once_and_rows_appended() {
 int main() {
   bool ok = true;
   ok = test_header_written_once_and_rows_appended() && ok;
+  ok = test_write_row_writes_header_automatically() && ok;
 
   if (!ok) {
     return 1;
